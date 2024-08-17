@@ -3,7 +3,7 @@
 /scripts/tmp/image
 /devel
 /.vscode
-./Dataset_Collection
+Dataset_Collection/
 ./SHW_DATASET_ABCD
 *.log
 *.pyc
