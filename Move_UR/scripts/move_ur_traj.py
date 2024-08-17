@@ -408,7 +408,7 @@ class TrajectoryClient:
         goal = FollowJointTrajectoryGoal()
         goal.trajectory.joint_names = JOINT_NAMES
 
-        duration_time = 2.0
+        duration_time = 0.5
         point = JointTrajectoryPoint()
         point.positions = joint_position
         point.time_from_start = rospy.Duration(duration_time)
@@ -446,7 +446,7 @@ class TrajectoryClient:
         # ]
 
         # duration_list = [3.0, 4.0, 5.0, 6.0, 7.0]
-        duration_time = 2.0
+        duration_time = 0.5
         end_position_pose = geometry_msgs.Pose(geometry_msgs.Vector3(end_position[0], end_position[1], end_position[2]), geometry_msgs.Quaternion(end_position[3], end_position[4], end_position[5], end_position[6]))
         point = CartesianTrajectoryPoint()
         point.pose = end_position_pose
@@ -498,9 +498,9 @@ class shw_ur_auto_collect:
         position17 = [1.4684203306781214, -1.1329916280559083, 1.6102352142333984, -1.8948952160277308, -1.6009214560138147, 0.0906682014465332]
         position18 =  [1.2855818907367151, -1.0156710904887696, 1.828209400177002, -1.8219796619811, -1.597670857106344, 0.3088383674621582]
         client = TrajectoryClient(init_node = False)
-        client.send_joint_trajectory()
         gripper = RobotiqGripper(init_node = False)
         self.call_auto_record_service(True)
+        client.send_joint_trajectory()
         client.move_once_by_joint(position1)
         client.move_once_by_joint(position2)
         gripper.close_gripper()
@@ -529,6 +529,7 @@ class shw_ur_auto_collect:
         client.move_once_by_joint(position18)
         client.send_joint_trajectory()
         gripper.open_gripper()
+        rospy.sleep(0.5)
         self.call_auto_record_service(False)
         
     def shw_end_traj_move(self):
@@ -552,9 +553,9 @@ class shw_ur_auto_collect:
         end_position17 = [0.148784712853, -0.641270187732, 0.117427201769, -0.023576366527, -0.999543950287, -0.00474363197101, 0.0182631963737]
         end_position18 = [0.297732688926, -0.641258303198, 0.117430366838, -0.0235777550891, -0.999543680571, -0.00475943513663, 0.018272051672]
         client = TrajectoryClient(init_node = False)
-        client.send_joint_trajectory()
         gripper = RobotiqGripper(init_node = False)
         self.call_auto_record_service(True)
+        client.send_joint_trajectory()
         client.move_once_by_end(end_position1)
         client.move_once_by_end(end_position2)
         gripper.close_gripper()
@@ -583,34 +584,41 @@ class shw_ur_auto_collect:
         client.move_once_by_end(end_position18)
         client.send_joint_trajectory()
         gripper.open_gripper()
+        rospy.sleep(0.5)
         self.call_auto_record_service(False)
 
+def test_npy_files_in_order(directory):
+    rospy.init_node("move_traj_once")
+    files = [f for f in os.listdir(directory) if f.endswith('.npy')]
+    client = TrajectoryClient(init_node = False)
+    client.send_joint_trajectory()
+    gripper = RobotiqGripper(init_node = False)
+    files.sort(key=lambda x: int(os.path.splitext(x)[0].split("_")[1]))
+    last_gripper = 0
+    now_gripper = 1
+    for file in files:
+        filepath = os.path.join(directory, file)
+        data = np.load(filepath)
+        now_gripper = data[0]
+        ur_endeffector_position = data[1:8]
+        ur_joint_angle = data[8:14]
+        print("here!!!")
+        print("ur_endeffector_position", ur_endeffector_position)
+        print("ur_joint_angle", ur_joint_angle)
+        # client.move_once_by_end(ur_endeffector_position)
+        client.move_once_by_joint(ur_joint_angle)
+        print("now_gripper", now_gripper)
+        print("last_gripper", last_gripper)
+        if now_gripper != last_gripper:
+            if now_gripper:
+                gripper.close_gripper()
+            else:
+                gripper.open_gripper()
+            last_gripper = now_gripper
+    return data
         
 if __name__ == "__main__":
+    # test_path = "/home/yhx/shw/src/Dataset_Collection/ABCD_all_example/traj"
+    # test_npy_files_in_order("/home/yhx/shw/src/Dataset_Collection/ABCD_all_example/traj")
     run_traj = shw_ur_auto_collect()
     run_traj.shw_joint_traj_move()
-    # rospy.init_node("move_traj")
-    # client = TrajectoryClient(init_node = False)
-    # gripper = RobotiqGripper(init_node = False, commend_control=True)
-    # gripper.close_gripper()
-    # gripper.open_gripper()
-    # print("done")
-    # client = TrajectoryClient(init_node = False)
-    # client.send_joint_trajectory()
-    # print("done")
-    # client.send_cartesian_trajectory()
-    # print("done")
-    # gripper.close_gripper()
-    # The controller choice is obviously not required to move the robot. It is a part of this demo
-    # script in order to show all available trajectory controllers.
-    # trajectory_type = client.choose_controller()
-    # if trajectory_type == "joint_based":
-    #     client.send_joint_trajectory()
-    # elif trajectory_type == "cartesian":
-    #     client.send_cartesian_trajectory()
-    # else:
-    #     raise ValueError(
-    #         "I only understand types 'joint_based' and 'cartesian', but got '{}'".format(
-    #             trajectory_type
-    #         )
-    #     )
