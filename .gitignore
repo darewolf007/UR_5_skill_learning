@@ -5,6 +5,8 @@
 /.vscode
 Dataset_Collection/
 ./SHW_DATASET_ABCD
+experiments/
+spirl/
 *.log
 *.pyc
 .idea/

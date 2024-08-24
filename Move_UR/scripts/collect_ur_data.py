@@ -4,7 +4,6 @@ from __future__ import print_function
 
 import sys
 import rospy
-from hh import get_new_pos
 import numpy as np
 import os
 from math import pi
@@ -51,6 +50,7 @@ from std_msgs.msg import Bool, UInt32MultiArray
 import os
 from std_srvs.srv import SetBool, SetBoolResponse
 import threading
+from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
 if sys.version_info[0] < 3:
     input = raw_input
 
@@ -79,10 +79,12 @@ class Data_Collection:
         # self.depth_sub = rospy.Subscriber('/depth_to_rgb/image_raw', Image, self.collect_scene_depth_image)
         self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_angle)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
-        self.ur_gripper_sub = rospy.Subscriber('/ur_gripper', Bool, self.collect_gripper_state)
+        # self.ur_gripper_sub = rospy.Subscriber('/ur_gripper', Bool, self.collect_gripper_state) 
+        self.ur_gripper_sub = rospy.Subscriber('/Robotiq2FGripperRobotInput', Robotiq2FGripper_robot_input, self.collect_gripper_state)
         self.record_num = 0
         base_data_path = "/home/yhx/shw/src/Dataset_Collection/"
         self.traj_directory_name = base_data_path + str(self.count_dirs_in_directory(base_data_path) +1)
+        print("this is the " + str(self.count_dirs_in_directory(base_data_path) +1) +" trajectory")
         os.mkdir(self.traj_directory_name)
         os.mkdir(self.traj_directory_name + '/scene_rgb_image')
         os.mkdir(self.traj_directory_name + '/marker_result_image')
@@ -135,11 +137,11 @@ class Data_Collection:
         image = self.cvbridge.imgmsg_to_cv2(image_msg,  desired_encoding='rgb8')
         self.scene_depth_images = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
     
-    def collect_gripper_state(self, gripper_state):
-        if gripper_state.data:
-            self.gripper_state = 1
-        else:
+    def collect_gripper_state(self, command):
+        if command.gPR == 0:
             self.gripper_state = 0
+        else:
+            self.gripper_state = 1
         
     def record(self):
         with self.safe_lock:         
@@ -160,7 +162,7 @@ class Data_Collection:
                         file.write("%s: %s\n" % (key, value))
                 cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', self.scene_rgb_images)
                 cv2.imwrite(self.traj_directory_name +  '/marker_result_image/' + 'aruco_'  + str(self.record_num) + '.jpg', self.aruco_image)
-                print("traj", traj_data.shape)
+                # print("traj", traj_data.shape)
                 # print("self.gripper_state ", self.gripper_state)
                 # print("self.marker_dict", self.marker_dict)
                 # print("self.ur_joint_angle", self.ur_joint_angle)
@@ -186,6 +188,7 @@ class Auto_Run_Collection:
             if self.is_recording:
                 self.is_recording = False
                 rospy.loginfo("Stopped data collection")
+                print("collect traj point num:   ",  self.data.record_num)
                 return SetBoolResponse(success=True, message="Data collection stopped.")
             else:
                 return SetBoolResponse(success=False, message="Data collection already stopped.")
