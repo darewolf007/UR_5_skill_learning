@@ -135,7 +135,7 @@ class MoveClient:
             with self.safe_lock:         
                 if (all(item in list(self.marker_dict.keys()) for item in [1, 5, 13, 17])) and (all(item is not None for item in [self.ur_joint_angle])):
                     env_data = np.concatenate((np.array(self.ur_joint_angle), 
-                        # np.array([self.gripper_state]),
+                        np.array([self.gripper_state]),
                         self.marker_dict[1], 
                         self.marker_dict[5],
                         self.marker_dict[13], 
@@ -185,12 +185,19 @@ class MoveClient:
                         robot_action_data[:-1] = robot_action_data[:-1]/1000 + self.ur_endeffector_position[:7]
                         # print("action", robot_action_data)
                         # print("robot_action_data", robot_action_data)
-                        if self.robot_gripper_state_check(robot_action_data[-1]) != self.gripper_state:
+                        
+                        
+                        if self.robot_gripper_state_check(robot_action_data[-1]) != 0:
                             self.gripper_change_confidence += 1
-                        if self.gripper_change_confidence > 3:
-                            robot_action_data[-1] = self.robot_gripper_state_check(robot_action_data[-1])
+                        if self.gripper_change_confidence > 1:
+                            if self.gripper_state:
+                                robot_action_data[-1] = 0
+                            else:
+                                robot_action_data[-1] = 1
                         else:
                             robot_action_data[-1] = self.gripper_state
+                            
+                        
                         # robot_action_data[-1] = self.gripper_state
                 robot_state = self.send_robot_action(robot_action_data)
                 self.robot_move_num += 1

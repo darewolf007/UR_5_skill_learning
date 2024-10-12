@@ -51,6 +51,8 @@ import os
 from std_srvs.srv import SetBool, SetBoolResponse
 import threading
 from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
+import ros_numpy
+
 if sys.version_info[0] < 3:
     input = raw_input
 
@@ -76,7 +78,7 @@ class Data_Collection:
         self.aruco_image_sub = rospy.Subscriber('/aruco_marker_publisher/result', Image, self.collect_aruco_image)
         self.aruco_result_sub = rospy.Subscriber('/aruco_marker_publisher/markers', MarkerArray, self.collect_aruco_results)
         self.color_sub = rospy.Subscriber('/rgb/image_raw', Image, self.collect_scene_rgb_image)
-        # self.depth_sub = rospy.Subscriber('/depth_to_rgb/image_raw', Image, self.collect_scene_depth_image)
+        self.depth_sub = rospy.Subscriber('/depth_to_rgb/image_raw', Image, self.collect_scene_depth_image)
         self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_angle)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
         # self.ur_gripper_sub = rospy.Subscriber('/ur_gripper', Bool, self.collect_gripper_state) 
@@ -87,6 +89,7 @@ class Data_Collection:
         print("this is the " + str(self.count_dirs_in_directory(base_data_path) +1) +" trajectory")
         os.mkdir(self.traj_directory_name)
         os.mkdir(self.traj_directory_name + '/scene_rgb_image')
+        os.mkdir(self.traj_directory_name + '/scene_depth_image')
         os.mkdir(self.traj_directory_name + '/marker_result_image')
         os.mkdir(self.traj_directory_name + '/traj')
         os.mkdir(self.traj_directory_name + '/marker')
@@ -134,8 +137,7 @@ class Data_Collection:
         self.scene_rgb_images = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
         
     def collect_scene_depth_image(self, image_msg):
-        image = self.cvbridge.imgmsg_to_cv2(image_msg,  desired_encoding='rgb8')
-        self.scene_depth_images = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        self.scene_depth_images = ros_numpy.numpify(image_msg)
     
     def collect_gripper_state(self, command):
         if command.gPR == 0:
@@ -161,12 +163,8 @@ class Data_Collection:
                     for key, value in self.marker_dict.items():
                         file.write("%s: %s\n" % (key, value))
                 cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', self.scene_rgb_images)
+                cv2.imwrite(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.jpg', self.scene_depth_images)
                 cv2.imwrite(self.traj_directory_name +  '/marker_result_image/' + 'aruco_'  + str(self.record_num) + '.jpg', self.aruco_image)
-                # print("traj", traj_data.shape)
-                # print("self.gripper_state ", self.gripper_state)
-                # print("self.marker_dict", self.marker_dict)
-                # print("self.ur_joint_angle", self.ur_joint_angle)
-                # print("self.ur_endeffector_position", self.ur_endeffector_position)
 
 class Auto_Run_Collection:
     def __init__(self):

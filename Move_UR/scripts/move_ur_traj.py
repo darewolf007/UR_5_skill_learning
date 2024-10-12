@@ -232,7 +232,7 @@ class TrajectoryClient:
         self.joint_trajectory_controller = JOINT_TRAJECTORY_CONTROLLERS[0]
         self.cartesian_trajectory_controller = CARTESIAN_TRAJECTORY_CONTROLLERS[0]
 
-    def send_joint_trajectory(self):
+    def send_init_joint_trajectory(self, joint_pos = [1.542957607899801, -1.3407166761210938, 1.2018647193908691, -1.75225891689443, -1.6117513815509241, -0.3191445509540003]):
         """Creates a trajectory and sends it using the selected action server"""
 
         # make sure the correct controller is loaded and activated
@@ -254,7 +254,7 @@ class TrajectoryClient:
 
         # The following list are arbitrary positions
         # Change to your own needs if desired
-        position_list = [[1.542957607899801, -1.3407166761210938, 1.2018647193908691, -1.75225891689443, -1.6117513815509241, -0.3191445509540003]]
+        position_list = [joint_pos]
         duration_list = [1.0]
         for i, position in enumerate(position_list):
             point = JointTrajectoryPoint()
@@ -271,7 +271,7 @@ class TrajectoryClient:
         result = trajectory_client.get_result()
         rospy.loginfo("Trajectory execution finished in state {}".format(result.error_code))
 
-    def send_cartesian_trajectory(self):
+    def send_init_cartesian_trajectory(self, end_pos = [0.249179509371,-0.392681547898, 0.38588219159, 0.927532761465,0.368790596434,0.0409693418325,0.044698830199]):
         """Creates a Cartesian trajectory and sends it using the selected action server"""
         self.switch_controller(self.cartesian_trajectory_controller)
 
@@ -290,7 +290,7 @@ class TrajectoryClient:
 
         pose_list = [
             geometry_msgs.Pose(
-                geometry_msgs.Vector3(0.249179509371,-0.392681547898, 0.38588219159), geometry_msgs.Quaternion(0.927532761465,0.368790596434,0.0409693418325,0.044698830199) 
+                geometry_msgs.Vector3(end_pos[:3]), geometry_msgs.Quaternion(end_pos[3:]) 
             ),
         ]
 
@@ -500,7 +500,7 @@ class shw_ur_auto_collect:
         position18 =  [1.2855818907367151, -1.0156710904887696, 1.828209400177002, -1.8219796619811, -1.597670857106344, 0.3088383674621582]
         client = TrajectoryClient(init_node = False)
         gripper = RobotiqGripper(init_node = False)
-        client.send_joint_trajectory()
+        client.send_init_joint_trajectory()
         self.call_auto_record_service(True)
         rospy.sleep(0.1)
         client.move_once_by_joint(position1)
@@ -523,8 +523,8 @@ class shw_ur_auto_collect:
         client.move_once_by_joint(position11)
         gripper.open_gripper()
         # task C with out B
-        # client.move_once_by_joint(position6) 
-        # client.move_once_by_joint(position11, need_time= 5)
+        client.move_once_by_joint(position6) 
+        client.move_once_by_joint(position11, need_time= 5)
         #####
         client.move_once_by_joint(position12)
         gripper.close_gripper()
@@ -536,7 +536,7 @@ class shw_ur_auto_collect:
         client.move_once_by_joint(position17)
         gripper.close_gripper()
         client.move_once_by_joint(position18)
-        client.send_joint_trajectory()
+        client.send_init_joint_trajectory()
         gripper.open_gripper()
         rospy.sleep(0.5)
         self.call_auto_record_service(False)
@@ -563,7 +563,7 @@ class shw_ur_auto_collect:
         end_position18 = np.array([0.297732688926, -0.641258303198, 0.117430366838, -0.0235777550891, -0.999543680571, -0.00475943513663, 0.018272051672])
         client = TrajectoryClient(init_node = False)
         gripper = RobotiqGripper(init_node = False)
-        client.send_joint_trajectory()
+        client.send_init_joint_trajectory()
         self.call_auto_record_service(True)
         rospy.sleep(0.1)
         end_position1[:3] += np.random.uniform(low= 0, high=0.05, size = (3,))
@@ -629,7 +629,7 @@ class shw_ur_auto_collect:
         end_position18[2] += np.random.uniform(low= 0.00, high=0.01, size = (1,))
         end_position18[0] += np.random.uniform(low= 0.02, high=0.03, size = (1,))
         client.move_once_by_end(end_position18)
-        client.send_joint_trajectory()
+        client.send_init_joint_trajectory()
         gripper.open_gripper()
         rospy.sleep(0.5)
         self.call_auto_record_service(False)
@@ -638,7 +638,7 @@ def test_npy_files_in_order(directory):
     rospy.init_node("move_traj_once")
     files = [f for f in os.listdir(directory) if f.endswith('.npy')]
     client = TrajectoryClient(init_node = False)
-    client.send_joint_trajectory()
+    client.send_init_joint_trajectory()
     gripper = RobotiqGripper(init_node = False)
     files.sort(key=lambda x: int(os.path.splitext(x)[0].split("_")[1]))
     last_gripper = 0
