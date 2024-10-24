@@ -58,7 +58,7 @@ except:
     import queue as Queue
 if sys.version_info[0] < 3:
     input = raw_input
-from kinect_camera import KinectDK
+from utils.kinect_camera import KinectDK
 from scipy import misc
 
 class Data_Collection:
@@ -213,13 +213,10 @@ class Data_Collection:
                 np.save(traj_file_path, traj_data)
                 img_color = self.kinect_dk.queue_color.get(timeout=10.0)
                 img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
-                img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
-                img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
-                img_color_disp = cv2.resize(img_color, tuple(np.asarray(self.size)//2))
-                img_depth_disp = cv2.resize(img_depth, tuple(np.asarray(self.size)//2))
-                misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth_disp)
-                cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color_disp)
-                cv2.imwrite(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.png', img_depth_disp)      
+                # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
+                # img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
+                misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
+                cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
         
 class Auto_Run_Collection:
     def __init__(self):
