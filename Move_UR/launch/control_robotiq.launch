@@ -1,0 +1,4 @@
+<launch>
+    <arg name="run_gripper_control" default="true"/>
+    <node pkg="robotiq_2f_gripper_control" type="Robotiq2FGripperSimpleController.py" name="robotiq_gripper" if="$(arg run_gripper_control)" output="screen"/>
+</launch>

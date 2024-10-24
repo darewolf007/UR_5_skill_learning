@@ -1,0 +1,6 @@
+<launch>
+    <arg name="init_robot" default="false"/>
+    <include file="$(find Move_UR)/launch/init_ur_robot.launch" if="$(arg init_robot)">
+    </include>
+    <node pkg="Move_UR" type="collect_ur_data.py" name="collect_ur_data" output="screen"/>
+</launch>
