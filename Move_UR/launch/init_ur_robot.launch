@@ -1,0 +1,20 @@
+<launch>
+    <arg name="run_camera" default="true"/>
+    <arg name="run_gripper_control" default="false"/>
+    <arg name="robot_ip" doc="The IP address of the UR5 robot" default="192.168.1.138"/>
+    <arg name="gripper_dev" doc="The usb address of the robotiq, need to sudo chmod 777 /dev/ttyUSB0 first" default="/dev/ttyUSB0"/>
+    <arg name="kinematics_config" default="$(find ur_calibration)/my_robot_calibration.yaml"/>
+    <include file="$(find azure_kinect_ros_driver)/launch/driver.launch" if="$(arg run_camera)">
+    </include>
+
+    <include file="$(find ur_robot_driver)/launch/ur5_bringup.launch">
+        <arg name="robot_ip" value="$(arg robot_ip)"/>
+        <arg name="kinematics_config" value="$(arg kinematics_config)"/>
+    </include>
+
+    <include file="$(find ur5_moveit_config)/launch/moveit_planning_execution.launch">
+    </include>
+
+    <node pkg="robotiq_2f_gripper_control" type="Robotiq2FGripperRtuNode.py" name="robotiq_connect" args = "$(arg gripper_dev)"/>
+    <node pkg="robotiq_2f_gripper_control" type="Robotiq2FGripperSimpleController.py" name="robotiq_gripper" if="$(arg run_gripper_control)" output="screen"/>
+</launch>
