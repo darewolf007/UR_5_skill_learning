@@ -69,6 +69,7 @@ class Data_Collection:
         self.marker_list = []
         self.marker_dict = {}
         self.ur_joint_angle = None
+        self.ur_joint_velocity=None
         self.ur_endeffector_position = None
         self.aruco_image = None
         self.gripper_state = 0
@@ -81,7 +82,7 @@ class Data_Collection:
         self.aruco_markers_sub = rospy.Subscriber('/aruco_marker_publisher/markers_list', UInt32MultiArray, self.collect_aruco_markers)
         self.aruco_image_sub = rospy.Subscriber('/aruco_marker_publisher/result', Image, self.collect_aruco_image)
         self.aruco_result_sub = rospy.Subscriber('/aruco_marker_publisher/markers', MarkerArray, self.collect_aruco_results)
-        self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_angle)
+        self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_info)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
         self.ur_gripper_sub = rospy.Subscriber('/Robotiq2FGripperRobotInput', Robotiq2FGripper_robot_input, self.collect_gripper_state)
         self.record_num = 0
@@ -119,8 +120,9 @@ class Data_Collection:
                 rotation_data = np.array([rotation.x, rotation.y, rotation.z, rotation.w])
                 self.marker_dict[marker_id] = np.concatenate((translation_data, rotation_data))
         
-    def collect_UR_joint_angle(self, joint_state):
+    def collect_UR_joint_info(self, joint_state):
         self.ur_joint_angle = np.array(joint_state.position)
+        self.ur_joint_velocity=np.array(joint_state.velocity)
     
     def collect_UR_endeffector_position(self, tf_message):
         for transform in tf_message.transforms:
@@ -208,9 +210,13 @@ class Data_Collection:
         with self.safe_lock:
             if self.ur_endeffector_position is not None:
                 traj_data = np.concatenate((np.array(self.ur_endeffector_position), np.array([self.gripper_state])))
+                velo =np.array(self.ur_joint_velocity)
                 self.record_num += 1
                 traj_file_path = self.traj_directory_name + '/traj/' + 'traj_' + str(self.record_num) + '.npy'
+                velo_file_path=self.traj_directory_name + '/traj/' + 'velo_' + str(self.record_num) + '.npy'
+                print("traj_file_path", traj_file_path)
                 np.save(traj_file_path, traj_data)
+                np.save(velo_file_path, velo)
                 img_color = self.kinect_dk.queue_color.get(timeout=10.0)
                 img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
                 # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)

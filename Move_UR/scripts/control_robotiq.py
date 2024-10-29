@@ -1,6 +1,4 @@
 #!/usr/bin/env python2
-
-
 import roslib; roslib.load_manifest('robotiq_2f_gripper_control')
 import rospy
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as outputMsg
