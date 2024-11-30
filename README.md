@@ -38,8 +38,9 @@ roslaunch easy_handeye ur5_kinect_calibration.launch
 source devel_isolated/setup.bash
 
 python src/Move_UR/scripts/useful_tool/collect_image_state.py
-### collect robot keypoint or entire trajectory(env: regnet)
+### collect robot keypoint or entire trajectory(env: regnet  --base_data_path your_path)
 source devel_isolated/setup.bash
 #### collect robot entire trajectory
+python src/Move_UR/scripts/useful_tool/collect_root_trajectory.py --mode record
 #### collect robot keypoint trajectory
-python src/Move_UR/scripts/useful_tool/collect_keypose_traj.py --mode select
+python src/Move_UR/scripts/useful_tool/collect_root_trajectory.py --mode select

@@ -134,11 +134,11 @@ class CollectTrajectory:
                 self.gripper.close_gripper()
                 rospy.loginfo("Gripper closed")
             elif key == 'e':
-                self.traj_save_flag = False
+                with self.save_flag_lock:
+                    self.traj_save_flag = False
                 rospy.loginfo("Stopped saving trajectory")
             elif key == 'q':
                 rospy.loginfo("end saving trajectory")
-                rospy.signal_shutdown("User requested shutdown")
                 self.save_data_event.set()
                 break
     
@@ -153,12 +153,12 @@ class CollectTrajectory:
                     if end_pose is not None:
                         robot_state = np.concatenate((end_pose, np.array([gripper_state])))
                         robot_state_str = robot_state_to_string(robot_state)
-                        print(f"{traj_length} : {robot_state_str}")
                         traj_length += 1
                         traj.append(robot_state)
             if self.save_data_event.is_set():
                 numpy_traj = np.array(traj, dtype=np.float32)
                 write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
+                rospy.loginfo("saving trajectory:" +  self.traj_directory_name + "/traj.npy")
                 break
 
     def record_traj(self, save_image=False):
@@ -169,9 +169,6 @@ class CollectTrajectory:
         self.output_thread.start()
         self.input_thread.join()
         self.output_thread.join()
-
-
-
 
     def select_by_keypoard(self, save_image = False):
         traj = []
@@ -194,7 +191,6 @@ class CollectTrajectory:
                 self.gripper.close_gripper()    
                 rospy.loginfo("Gripper closed") 
             elif key == 'e':
-                traj_save_flag = False 
                 rospy.loginfo("Stopped saving trajectory")
             elif key == 'q':
                 rospy.loginfo("end saving trajectory")
