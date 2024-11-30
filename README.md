@@ -18,13 +18,12 @@ roslaunch Move_UR init_ur_robot.launch
 
 ### Move robot follow a trajectory and collect data(data_collection env: py27)
 
-**you need to set trajectory_path first, on launch file args or terminal**eg: roslaunch Move_UR move_follow_trajectory.launch is_collect:=True control_mode:=end trajectory_path:="your trajectory path"
+**you need to set trajectory_path first, on launch file args or terminal**
+
+eg: roslaunch Move_UR move_follow_trajectory.launch is_collect:=True control_mode:=end trajectory_path:="your trajectory path"
 
 ```
 roslaunch Move_UR move_follow_trajectory.launch
-```
-
-```
 roslaunch Move_UR data_collection.launch
 ```
 
@@ -89,14 +88,14 @@ roslaunch easy_handeye ur5_kinect_calibration.launch
 
 ## tool box
 
-### collect step rgbd image and robot state info(env: py27  other args: --base_data_path your_path)
+### collect step rgbd image and robot state info(env: py27 & other args: --base_data_path your_path)
 
 ```
 source devel_isolated/setup.bash
 python src/Move_UR/scripts/useful_tool/collect_image_state.py
 ```
 
-### collect robot keypoint or entire trajectory(env: regnet  other args: --base_data_path your_path)
+### collect robot keypoint or entire trajectory(env: regnet & other args: --base_data_path your_path)
 
 #### collect robot entire trajectory(/tf hz is 560~570)
 
@@ -113,4 +112,5 @@ python src/Move_UR/scripts/useful_tool/collect_robot_trajectory.py --mode select
 ## TODO
 
 * [ ]  refactor python file except move_ur_follow_trajectory
-* [ ]  add internet communication on  own computer
+* [ ]  add internet communication on  remote workstationown
+* [ ]  test internet communication on  robot
