@@ -143,11 +143,11 @@ class CollectTrajectory:
             robot_joint_str = robot_state_to_string(robot_joint_state)
             numpy_traj = np.array(robot_state, dtype = np.float32)
             numpy_joint = np.array(robot_joint_state, dtype = np.float32)
-            write_npy_file(numpy_joint, self.traj_directory_name + '/state/joint_'+str(count)+'.npy')
-            write_npy_file(numpy_traj, self.traj_directory_name + '/state/traj_'+str(count)+'.npy')
-            with open(self.traj_directory_name + '/state/traj_'+str(count)+'.txt', "w") as f:
+            write_npy_file(numpy_joint, self.traj_directory_name + '/state/joint_trajectory_'+str(count)+'.npy')
+            write_npy_file(numpy_traj, self.traj_directory_name + '/state/end_trajectory_'+str(count)+'.npy')
+            with open(self.traj_directory_name + '/state/end_trajectory_'+str(count)+'.txt', "w") as f:
                 f.write(robot_state_str)
-            with open(self.traj_directory_name + '/state/joint_'+str(count)+'.txt', "w") as f:
+            with open(self.traj_directory_name + '/state/joint_trajectory_'+str(count)+'.txt', "w") as f:
                 f.write(robot_joint_str)
 
     def get_keyboard_image_state(self):

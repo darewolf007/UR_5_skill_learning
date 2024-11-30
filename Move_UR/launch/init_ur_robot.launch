@@ -17,5 +17,5 @@
 
     <node pkg="robotiq_2f_gripper_control" type="Robotiq2FGripperRtuNode.py" name="robotiq_connect" args = "$(arg gripper_dev)"/>
     <node pkg="robotiq_2f_gripper_control" type="Robotiq2FGripperSimpleController.py" name="robotiq_gripper" if="$(arg run_gripper_control)" output="screen"/>
-    <node pkg = "rviz" type ="rviz"  name="rviz" if="$(arg run_camera)" output="screen"/>
+    <node pkg = "rviz" type ="rviz"  name="rviz" if="$(arg run_camera)" output="screen" args = "-d $(find Move_UR)/config/rgb_rviz.rviz"/>
 </launch>

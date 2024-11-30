@@ -1,0 +1,13 @@
+<launch>
+    <arg name="is_init_robot"    default="false"/>
+    <arg name="control_mode"    default="end" />
+    <arg name="trajectory_path" default="/home/yhx/shw/src/Dataset_Collection/keypose/end_trajectory.npy" />
+    <arg name="is_collect"    default="true" />
+    <include file="$(find Move_UR)/launch/init_ur_robot.launch" if="$(arg is_init_robot)">
+    </include>
+    <node pkg="Move_UR" type="move_ur_follow_trajectory.py" name="move_ur_follow_trajectory" output="screen">
+        <param name="control_mode" type="string" value="$(arg control_mode)" />
+        <param name="trajectory_path" type="string" value="$(arg trajectory_path)" />
+        <param name="is_collect" type="bool" value="$(arg is_collect)" />
+    </node>
+</launch>

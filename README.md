@@ -8,26 +8,44 @@
 ## launch file(all commends need to source devel_isolated/setup.bash)
 ### UR5e control(launch: camera, robotiq, UR, moveit)
 roslaunch Move_UR init_ur_robot.launch
+
 ### Move robot follow a trajectory and collect data
-roslaunch Move_UR move_follow_traj.launch
+you need to set trajectory_path first, on launch file args or terminal
+
+eg: roslaunch Move_UR move_follow_trajectory.launch is_collect:=True control_mode:=end trajectory_path:="your trajectory path"
+
+roslaunch Move_UR move_follow_trajectory.launch
 
 roslaunch Move_UR data_collection.launch (py27 env)
-### Data collection without move robot
+
+### Only move robot follow a trajectory
+### Only move robot follow a trajectory under end control
+roslaunch Move_UR move_follow_trajectory.launch is_collect:=False
+
+### Only move robot follow a trajectory under joint control
+roslaunch Move_UR move_follow_trajectory.launch is_collect:=False control_mode:=joint
+
+### Only data collection without move robot
 roslaunch Move_UR data_collection.launch (py27 env)
 
-rosservice call /collect_bool_service True
+rosservice call /collect_bool_service True (new terminal)
+
 ### Robotiq control on terminal(sudo chmod 777 /dev/ttyUSB0)
 roslaunch Move_UR control_robotiq.launch
-### Get keypoints from keyboard
-python src/Move_UR/scripts/collect_keypose.py (regnet env)
+
+### Get keypoints from keyboard(env: regnet)
+python src/Move_UR/scripts/collect_keypose.py
+
 ### Camera
 roslaunch azure_kinect_ros_driver driver.launch
+
 ### algorithm(visual-->action) network communication
 roslaunch Move_UR move_follow_action.launch
 
 python src/Move_UR/scripts/publish_action_client_network.py 
 ### algorithm(visual-->action) local communication
 python src/Move_UR/scripts/publish_action_client_local.py 
+
 ### Handeye calibration(need to cd shw_eyehand)
 source devel/setup.bash
 
@@ -38,9 +56,12 @@ roslaunch easy_handeye ur5_kinect_calibration.launch
 source devel_isolated/setup.bash
 
 python src/Move_UR/scripts/useful_tool/collect_image_state.py
+
 ### collect robot keypoint or entire trajectory(env: regnet  --base_data_path your_path)
 source devel_isolated/setup.bash
-#### collect robot entire trajectory
-python src/Move_UR/scripts/useful_tool/collect_root_trajectory.py --mode record
+
+#### collect robot entire trajectory(/tf hz is 560~570)
+python src/Move_UR/scripts/useful_tool/collect_robot_trajectory.py --mode record --record_step 1000
+
 #### collect robot keypoint trajectory
-python src/Move_UR/scripts/useful_tool/collect_root_trajectory.py --mode select
+python src/Move_UR/scripts/useful_tool/collect_robot_trajectory.py --mode select

@@ -80,11 +80,12 @@ class RobotiqGripper:
         return self.gripper_state
 
 class CollectTrajectory:
-    def __init__(self, base_data_path = BASE_DATA_PATH):
+    def __init__(self, base_data_path = BASE_DATA_PATH, record_step = 10000):
         rospy.init_node('data_collection')
         self.base_data_path = base_data_path
         self.init_data_dir(base_data_path)
         self.traj_length = 0
+        self.record_step  = record_step
         self.traj_end_pose = []
         self.traj_joint_pose = []
         self.traj_rgb_image = []
@@ -166,14 +167,16 @@ class CollectTrajectory:
                         robot_joint = np.concatenate((joint_state, np.array([gripper_state])))
                         robot_state_str = robot_state_to_string(robot_state)
                         traj_length += 1
-                        traj.append(robot_state)
-                        joint.append(robot_joint)
+                        if traj_length % self.record_step == 0:
+                            print(str(traj_length) + " : " + robot_state_str)
+                            traj.append(robot_state)
+                            joint.append(robot_joint)
             if self.save_data_event.is_set():
                 numpy_traj = np.array(traj, dtype=np.float32)
                 numpy_joint = np.array(joint, dtype=np.float32)
-                write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
-                write_npy_file(numpy_joint, self.traj_directory_name + "/joint.npy")
-                rospy.loginfo("saving trajectory:" +  self.traj_directory_name + "/traj.npy")
+                write_npy_file(numpy_traj, self.traj_directory_name + "/end_trajectory.npy")
+                write_npy_file(numpy_joint, self.traj_directory_name + "/joint_trajectory.npy")
+                rospy.loginfo("saving trajectory:" +  self.traj_directory_name + "/trajectory.npy")
                 break
 
     def record_traj(self, save_image=False):
@@ -228,20 +231,19 @@ class CollectTrajectory:
                 continue
         numpy_traj = np.array(traj, dtype = np.float32)
         numpy_joint = np.array(joint, dtype=np.float32)
-        write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
-        write_npy_file(numpy_joint, self.traj_directory_name + "/joint.npy")
+        write_npy_file(numpy_traj, self.traj_directory_name + "/end_trajectory.npy")
+        write_npy_file(numpy_joint, self.traj_directory_name + "/joint_trajectory.npy")
         traj_str = "[" + "\n".join(traj_str) + "]"
-        with open(self.traj_directory_name + "/traj.txt", "w") as f:
+        with open(self.traj_directory_name + "/end_trajectory.txt", "w") as f:
             f.write(traj_str)
       
-
-
 def main():
     parser = argparse.ArgumentParser(description="Select mode for collecting keypose trajectory")
     parser.add_argument('--mode', type=str, choices=['record', 'select'], required=True, help='Mode to run the script in')
     parser.add_argument('--base_data_path', type=str, default=BASE_DATA_PATH, help='Base data path for saving trajectories')
+    parser.add_argument('--record_step', type=int, default=10000, help='Only for record entire trajectory')
     args = parser.parse_args()
-    collect_data = CollectTrajectory(base_data_path = args.base_data_path)
+    collect_data = CollectTrajectory(base_data_path = args.base_data_path, record_step=args.record_step)
     if args.mode == 'record':
         collect_data.record_traj()
     elif args.mode == 'select':
