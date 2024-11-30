@@ -222,6 +222,7 @@ class Data_Collection:
                 # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
                 # img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
                 misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
+                np.save(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.npy', img_depth.astype(np.float16))
                 cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
         
 class Auto_Run_Collection:
