@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 import roslib; roslib.load_manifest('robotiq_2f_gripper_control')
 import rospy
 import re
@@ -11,6 +12,8 @@ from control_robotiq import RobotiqGripper
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as outputMsg
 from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
 from tf2_msgs.msg import TFMessage
+from utils.kinect_camera import KinectDK
+from scipy import misc
 BASE_DATA_PATH = "/home/yhx/shw/src/Dataset_Collection/keypose/"
 
 def write_npy_file(data, file_name):
@@ -29,7 +32,7 @@ def read_end_pose():
     return "[" + ", ".join([x, y, z, rx, ry, rz, rw]) + "],", [x, y, z, rx, ry, rz, rw]
 
 def robot_state_to_string(robot_state):
-    return "[" + ", ".join(map(str, robot_state)) + "],"
+    return "[" + ", ".join(map(str, robot_state)) + "]"
 
 class RobotiqGripper:
     def __init__(self, init_node = True, commend_control = False):
@@ -108,15 +111,53 @@ class CollectTrajectory:
     def init_data_dir(self, base_data_path):
         self.traj_directory_name = base_data_path + str(self.count_dirs_in_directory(base_data_path) +1)
         os.mkdir(self.traj_directory_name)
+        os.mkdir(self.traj_directory_name + "/rgb")
+        os.mkdir(self.traj_directory_name + "/depth")
+        os.mkdir(self.traj_directory_name + "/state")
+    
+    def save_step_image(self, count, img_color, img_depth):
+        dataset_path = self.traj_directory_name
+        save_path = os.path.join(dataset_path, 'rgb/rgb_'+str(count)+'.jpg')
+        cv2.imwrite(save_path, img_color)
+        save_path2 = os.path.join(dataset_path, 'depth/depth_'+str(count)+'.png')
+        cv2.imwrite(save_path2, np.uint16(img_depth))
+    
+    def save_step_state(self,count):
+        end_pose = self.ur_endeffector_position
+        gripper_state = self.gripper.get_gripper_state()
+        if end_pose is not None:
+            robot_state = np.concatenate((end_pose, np.array([gripper_state])))
+            robot_state_str = robot_state_to_string(robot_state)
+            traj_length += 1
+            print(str(traj_length) + " : " + robot_state_str)
+            numpy_traj = np.array(robot_state, dtype = np.float32)
+            write_npy_file(numpy_traj, self.traj_directory_name + 'traj/traj_'+str(count)+'.npy')
+            with open(self.traj_directory_name + "/traj.txt", "w") as f:
+                f.write(robot_state_str)
 
-    def record_traj(self, save_image = False):
-        traj_save_flag = False
-        traj = []
+    def get_keyboard_image_state(self):
+        kinect_dk = KinectDK()
+        img_color = kinect_dk.queue_color.get(timeout=10.0)
+        K = np.asarray(kinect_dk.rgb_info.K).reshape(3, 3)
+        D = np.asarray(kinect_dk.rgb_info.D)
+        size = img_color.shape[:2][::-1]
+        map1, map2 = cv2.initUndistortRectifyMap(K, D, None, None, size, cv2.CV_32FC1)
+        count = 1
         while not rospy.is_shutdown():
-            key = input()
-            if key == 'b':
-                traj_save_flag = True
-                rospy.loginfo("Started saving trajectory")
+            img_color = kinect_dk.queue_color.get(timeout=10.0)
+            img_depth = kinect_dk.queue_depth.get(timeout=10.0)
+            img_color = cv2.remap(img_color, map1, map2, cv2.INTER_CUBIC)
+            img_depth = cv2.remap(img_depth, map1, map2, cv2.INTER_NEAREST)
+            img_color_disp = cv2.resize(img_color, tuple(np.asarray(size)//2))
+            img_depth_disp = cv2.resize(img_depth, tuple(np.asarray(size)//2))
+            cv2.imshow('img', img_color_disp)
+            cv2.imshow('dpth',img_depth_disp )
+            key = cv2.waitKey(1)
+            if key == ord('s'):
+                self.save_step_image(count, img_color, img_depth)
+                self.save_step_state(count)
+                print('success save',count)
+                count+=1
             elif key == 'a':
                 self.gripper.activate_gripper()
                 rospy.loginfo("Gripper activated")
@@ -129,82 +170,14 @@ class CollectTrajectory:
             elif key == 'c':
                 self.gripper.close_gripper()    
                 rospy.loginfo("Gripper closed") 
-            elif key == 'e':
-                traj_save_flag = False 
-                rospy.loginfo("Stopped saving trajectory")
-            elif key == 'q':
-                rospy.loginfo("end saving trajectory")
+            elif key == ord('q'):
+                cv2.destroyAllWindows()
                 break
-            elif key == 's':
-                rospy.loginfo("not for recording trajectory") 
-            else:
-                continue
-            if traj_save_flag:
-                end_pose = self.ur_endeffector_position
-                gripper_state = self.gripper.get_gripper_state()
-                if end_pose is not None:
-                    robot_state = np.concatenate((end_pose, np.array([gripper_state])))
-                    robot_state_str = robot_state_to_string(robot_state)
-                    traj_length += 1
-                    traj.append(robot_state)
-        numpy_traj = np.array(traj, dtype = np.float32)
-        write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
-
-    def select_by_keypoard(self, save_image = False):
-        traj = []
-        while not rospy.is_shutdown():
-            key = input()
-            if key == 'b':
-                rospy.loginfo("not for select keypose") 
-            elif key == 'a':
-                self.gripper.activate_gripper()
-                rospy.loginfo("Gripper activated")
-            elif key == 'r':
-                self.gripper.reset_gripper()
-                rospy.loginfo("Gripper reset")
-            elif key == 'o':
-                self.gripper.open_gripper()
-                rospy.loginfo("Gripper opened")
-            elif key == 'c':
-                self.gripper.close_gripper()    
-                rospy.loginfo("Gripper closed") 
-            elif key == 'e':
-                traj_save_flag = False 
-                rospy.loginfo("Stopped saving trajectory")
-            elif key == 'q':
-                rospy.loginfo("end saving trajectory")
-                break
-            elif key == 's':
-                end_pose = self.ur_endeffector_position
-                gripper_state = self.gripper.get_gripper_state()
-                if end_pose is not None:
-                    robot_state = np.concatenate((end_pose, np.array([gripper_state])))
-                    robot_state_str = robot_state_to_string(robot_state)
-                    traj_length += 1
-                    traj.append(robot_state)
-                    print(str(traj_length) + " : " + robot_state_str)
-            else:
-                continue
-        numpy_traj = np.array(traj, dtype = np.float32)
-        write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
-        traj_str = "[" + "\n".join(traj) + "]"
-        with open(self.traj_directory_name + "/traj.txt", "w") as f:
-            f.write(traj_str)
-      
-
+        kinect_dk.release()
 
 def main():
-    parser = argparse.ArgumentParser(description="Select mode for collecting keypose trajectory")
-    parser.add_argument('--mode', type=str, choices=['record', 'select'], required=True, help='Mode to run the script in')
-    parser.add_argument('--base_data_path', type=str, default=BASE_DATA_PATH, help='Base data path for saving trajectories')
-    args = parser.parse_args()
     collect_data = CollectTrajectory(base_data_path = args.base_data_path)
-    if args.mode == 'record':
-        collect_data.record_traj()
-    elif args.mode == 'select':
-        collect_data.select_by_keypoard()
-    else:
-        raise ValueError("Invalid mode")
+    collect_data.get_keyboard_image_state()
 
 if __name__ == "__main__":
     main()
