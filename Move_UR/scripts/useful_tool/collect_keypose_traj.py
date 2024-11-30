@@ -4,9 +4,10 @@ import re
 import subprocess
 import cv2
 import rospy
-import numpy as np
 import os
 import argparse
+import threading
+import numpy as np
 from control_robotiq import RobotiqGripper
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as outputMsg
 from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
@@ -89,7 +90,10 @@ class CollectTrajectory:
         self.ur_endeffector_position = None
         self.gripper = RobotiqGripper(init_node = False)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
-    
+        self.traj_save_flag = False
+        self.save_flag_lock = threading.Lock()
+        self.save_data_event = threading.Event()
+
     def collect_UR_endeffector_position(self, tf_message):
         for transform in tf_message.transforms:
                 if transform.child_frame_id == "tool0_controller":
@@ -110,14 +114,12 @@ class CollectTrajectory:
         self.traj_directory_name = base_data_path + str(self.count_dirs_in_directory(base_data_path) +1)
         os.mkdir(self.traj_directory_name)
 
-    def record_traj(self, save_image = False):
-        traj_save_flag = False
-        traj_length = 0
-        traj = []
+    def record_traj_input(self):
         while not rospy.is_shutdown():
             key = input()
             if key == 'b':
-                traj_save_flag = True
+                with self.save_flag_lock:
+                    self.traj_save_flag = True
                 rospy.loginfo("Started saving trajectory")
             elif key == 'a':
                 self.gripper.activate_gripper()
@@ -129,29 +131,47 @@ class CollectTrajectory:
                 self.gripper.open_gripper()
                 rospy.loginfo("Gripper opened")
             elif key == 'c':
-                self.gripper.close_gripper()    
-                rospy.loginfo("Gripper closed") 
+                self.gripper.close_gripper()
+                rospy.loginfo("Gripper closed")
             elif key == 'e':
-                traj_save_flag = False 
+                self.traj_save_flag = False
                 rospy.loginfo("Stopped saving trajectory")
             elif key == 'q':
                 rospy.loginfo("end saving trajectory")
+                rospy.signal_shutdown("User requested shutdown")
+                self.save_data_event.set()
                 break
-            elif key == 's':
-                rospy.loginfo("not for recording trajectory") 
+    
+    def record_traj_output(self):
+        traj_length = 0
+        traj = []
+        while not rospy.is_shutdown():
+            with self.save_flag_lock:
+                if self.traj_save_flag:
+                    end_pose = self.ur_endeffector_position
+                    gripper_state = self.gripper.get_gripper_state()
+                    if end_pose is not None:
+                        robot_state = np.concatenate((end_pose, np.array([gripper_state])))
+                        robot_state_str = robot_state_to_string(robot_state)
+                        print(f"{traj_length} : {robot_state_str}")
+                        traj_length += 1
+                        traj.append(robot_state)
+            if self.save_data_event.is_set():
+                numpy_traj = np.array(traj, dtype=np.float32)
+                write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
+                break
 
-            if traj_save_flag:
-                end_pose = self.ur_endeffector_position
-                gripper_state = self.gripper.get_gripper_state()
-                if end_pose is not None:
-                    robot_state = np.concatenate((end_pose, np.array([gripper_state])))
-                    robot_state_str = robot_state_to_string(robot_state)
-                    print(str(traj_length) + " : " + robot_state_str)
-                    traj_length += 1
-                    traj.append(robot_state)
-                continue
-        numpy_traj = np.array(traj, dtype = np.float32)
-        write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
+    def record_traj(self, save_image=False):
+        self.traj_save_flag = False
+        self.input_thread = threading.Thread(target=self.record_traj_input)
+        self.input_thread.start()
+        self.output_thread = threading.Thread(target=self.record_traj_output)
+        self.output_thread.start()
+        self.input_thread.join()
+        self.output_thread.join()
+
+
+
 
     def select_by_keypoard(self, save_image = False):
         traj = []
