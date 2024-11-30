@@ -14,6 +14,7 @@ from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
 from tf2_msgs.msg import TFMessage
 from kinect_camera import KinectDK
 from scipy import misc
+from sensor_msgs.msg import JointState
 BASE_DATA_PATH = "/home/yhx/shw/src/Dataset_Collection/keypose/"
 
 def write_npy_file(data, file_name):
@@ -89,9 +90,12 @@ class CollectTrajectory:
         self.traj_rgb_image = []
         self.traj_depth_image = []
         self.ur_endeffector_position = None
+        self.ur_joint_angle = None
+        self.ur_joint_velocity=None
         self.gripper = RobotiqGripper(init_node = True)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
-    
+        self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_info)
+
     def collect_UR_endeffector_position(self, tf_message):
         for transform in tf_message.transforms:
                 if transform.child_frame_id == "tool0_controller":
@@ -103,6 +107,10 @@ class CollectTrajectory:
                     translation_data = np.array([translation.x, translation.y, translation.z])
                     rotation_data = np.array([rotation.x, rotation.y, rotation.z, rotation.w])
                     self.ur_endeffector_position = np.concatenate((translation_data, rotation_data))
+    
+    def collect_UR_joint_info(self, joint_state):
+        self.ur_joint_angle = np.array(joint_state.position)
+        self.ur_joint_velocity=np.array(joint_state.velocity)
     
     def count_dirs_in_directory(self, path):
         count = sum(os.path.isdir(os.path.join(path, name)) for name in os.listdir(path))
@@ -127,13 +135,20 @@ class CollectTrajectory:
     def save_step_state(self,count):
         end_pose = self.ur_endeffector_position
         gripper_state = self.gripper.get_gripper_state()
+        joint_state = self.ur_joint_angle
         if end_pose is not None:
             robot_state = np.concatenate((end_pose, np.array([gripper_state])))
+            robot_joint_state = np.concatenate((joint_state, np.array([gripper_state])))
             robot_state_str = robot_state_to_string(robot_state)
+            robot_joint_str = robot_state_to_string(robot_joint_state)
             numpy_traj = np.array(robot_state, dtype = np.float32)
+            numpy_joint = np.array(robot_joint_state, dtype = np.float32)
+            write_npy_file(numpy_joint, self.traj_directory_name + '/state/joint_'+str(count)+'.npy')
             write_npy_file(numpy_traj, self.traj_directory_name + '/state/traj_'+str(count)+'.npy')
             with open(self.traj_directory_name + '/state/traj_'+str(count)+'.txt', "w") as f:
                 f.write(robot_state_str)
+            with open(self.traj_directory_name + '/state/joint_'+str(count)+'.txt', "w") as f:
+                f.write(robot_joint_str)
 
     def get_keyboard_image_state(self):
         kinect_dk = KinectDK()

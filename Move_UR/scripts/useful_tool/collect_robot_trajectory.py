@@ -12,6 +12,8 @@ from control_robotiq import RobotiqGripper
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as outputMsg
 from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
 from tf2_msgs.msg import TFMessage
+from sensor_msgs.msg import JointState
+
 BASE_DATA_PATH = "/home/yhx/shw/src/Dataset_Collection/keypose/"
 
 def write_npy_file(data, file_name):
@@ -88,11 +90,14 @@ class CollectTrajectory:
         self.traj_rgb_image = []
         self.traj_depth_image = []
         self.ur_endeffector_position = None
+        self.ur_joint_angle = None
+        self.ur_joint_velocity=None
         self.gripper = RobotiqGripper(init_node = False)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
         self.traj_save_flag = False
         self.save_flag_lock = threading.Lock()
         self.save_data_event = threading.Event()
+        self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_info)
 
     def collect_UR_endeffector_position(self, tf_message):
         for transform in tf_message.transforms:
@@ -106,6 +111,10 @@ class CollectTrajectory:
                     rotation_data = np.array([rotation.x, rotation.y, rotation.z, rotation.w])
                     self.ur_endeffector_position = np.concatenate((translation_data, rotation_data))
     
+    def collect_UR_joint_info(self, joint_state):
+        self.ur_joint_angle = np.array(joint_state.position)
+        self.ur_joint_velocity=np.array(joint_state.velocity)
+
     def count_dirs_in_directory(self, path):
         count = sum(os.path.isdir(os.path.join(path, name)) for name in os.listdir(path))
         return count
@@ -145,19 +154,25 @@ class CollectTrajectory:
     def record_traj_output(self):
         traj_length = 0
         traj = []
+        joint = []
         while not rospy.is_shutdown():
             with self.save_flag_lock:
                 if self.traj_save_flag:
                     end_pose = self.ur_endeffector_position
+                    joint_state = self.ur_joint_angle
                     gripper_state = self.gripper.get_gripper_state()
                     if end_pose is not None:
                         robot_state = np.concatenate((end_pose, np.array([gripper_state])))
+                        robot_joint = np.concatenate((joint_state, np.array([gripper_state])))
                         robot_state_str = robot_state_to_string(robot_state)
                         traj_length += 1
                         traj.append(robot_state)
+                        joint.append(robot_joint)
             if self.save_data_event.is_set():
                 numpy_traj = np.array(traj, dtype=np.float32)
+                numpy_joint = np.array(joint, dtype=np.float32)
                 write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
+                write_npy_file(numpy_joint, self.traj_directory_name + "/joint.npy")
                 rospy.loginfo("saving trajectory:" +  self.traj_directory_name + "/traj.npy")
                 break
 
@@ -172,6 +187,7 @@ class CollectTrajectory:
 
     def select_by_keypoard(self, save_image = False):
         traj = []
+        joint = []
         traj_str = []
         traj_length = 0
         while not rospy.is_shutdown():
@@ -197,18 +213,23 @@ class CollectTrajectory:
                 break
             elif key == 's':
                 end_pose = self.ur_endeffector_position
+                joint_state = self.ur_joint_angle
                 gripper_state = self.gripper.get_gripper_state()
                 if end_pose is not None:
                     robot_state = np.concatenate((end_pose, np.array([gripper_state])))
+                    robot_joint = np.concatenate((joint_state, np.array([gripper_state])))
                     robot_state_str = robot_state_to_string(robot_state)
                     traj_length += 1
                     traj.append(robot_state)
                     traj_str.append(robot_state_str)
+                    joint.append(robot_joint)
                     print(str(traj_length) + " : " + robot_state_str)
             else:
                 continue
         numpy_traj = np.array(traj, dtype = np.float32)
+        numpy_joint = np.array(joint, dtype=np.float32)
         write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
+        write_npy_file(numpy_joint, self.traj_directory_name + "/joint.npy")
         traj_str = "[" + "\n".join(traj_str) + "]"
         with open(self.traj_directory_name + "/traj.txt", "w") as f:
             f.write(traj_str)

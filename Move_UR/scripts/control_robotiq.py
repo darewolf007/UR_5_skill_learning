@@ -3,8 +3,6 @@ import roslib; roslib.load_manifest('robotiq_2f_gripper_control')
 import rospy
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as outputMsg
 
-
-
 class RobotiqGripper:
     def __init__(self, init_node = True, commend_control = False):
         if init_node:
