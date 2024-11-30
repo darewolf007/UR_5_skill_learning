@@ -12,7 +12,7 @@ from control_robotiq import RobotiqGripper
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as outputMsg
 from robotiq_2f_gripper_control.msg import Robotiq2FGripper_robot_input
 from tf2_msgs.msg import TFMessage
-from utils.kinect_camera import KinectDK
+from kinect_camera import KinectDK
 from scipy import misc
 BASE_DATA_PATH = "/home/yhx/shw/src/Dataset_Collection/keypose/"
 
@@ -117,10 +117,12 @@ class CollectTrajectory:
     
     def save_step_image(self, count, img_color, img_depth):
         dataset_path = self.traj_directory_name
-        save_path = os.path.join(dataset_path, 'rgb/rgb_'+str(count)+'.jpg')
+        save_path =dataset_path+'/rgb/rgb_'+str(count)+'.png'
         cv2.imwrite(save_path, img_color)
-        save_path2 = os.path.join(dataset_path, 'depth/depth_'+str(count)+'.png')
-        cv2.imwrite(save_path2, np.uint16(img_depth))
+        save_path2 = dataset_path+ '/depth/depth_'+str(count)+'.png'
+        save_path3 = dataset_path+ '/depth/depth_'+str(count)+'.npy'
+        misc.imsave(save_path2, img_depth)
+        np.save(save_path3, img_depth.astype(np.float16))
     
     def save_step_state(self,count):
         end_pose = self.ur_endeffector_position
@@ -128,11 +130,9 @@ class CollectTrajectory:
         if end_pose is not None:
             robot_state = np.concatenate((end_pose, np.array([gripper_state])))
             robot_state_str = robot_state_to_string(robot_state)
-            traj_length += 1
-            print(str(traj_length) + " : " + robot_state_str)
             numpy_traj = np.array(robot_state, dtype = np.float32)
-            write_npy_file(numpy_traj, self.traj_directory_name + 'traj/traj_'+str(count)+'.npy')
-            with open(self.traj_directory_name + "/traj.txt", "w") as f:
+            write_npy_file(numpy_traj, self.traj_directory_name + '/state/traj_'+str(count)+'.npy')
+            with open(self.traj_directory_name + '/state/traj_'+str(count)+'.txt', "w") as f:
                 f.write(robot_state_str)
 
     def get_keyboard_image_state(self):
@@ -144,30 +144,30 @@ class CollectTrajectory:
         map1, map2 = cv2.initUndistortRectifyMap(K, D, None, None, size, cv2.CV_32FC1)
         count = 1
         while not rospy.is_shutdown():
-            img_color = kinect_dk.queue_color.get(timeout=10.0)
-            img_depth = kinect_dk.queue_depth.get(timeout=10.0)
-            img_color = cv2.remap(img_color, map1, map2, cv2.INTER_CUBIC)
-            img_depth = cv2.remap(img_depth, map1, map2, cv2.INTER_NEAREST)
+            ori_img_color = kinect_dk.queue_color.get(timeout=10.0)
+            ori_img_depth = kinect_dk.queue_depth.get(timeout=10.0)
+            img_color = cv2.remap(ori_img_color, map1, map2, cv2.INTER_CUBIC)
+            img_depth = cv2.remap(ori_img_depth, map1, map2, cv2.INTER_NEAREST)
             img_color_disp = cv2.resize(img_color, tuple(np.asarray(size)//2))
             img_depth_disp = cv2.resize(img_depth, tuple(np.asarray(size)//2))
             cv2.imshow('img', img_color_disp)
             cv2.imshow('dpth',img_depth_disp )
             key = cv2.waitKey(1)
             if key == ord('s'):
-                self.save_step_image(count, img_color, img_depth)
+                self.save_step_image(count, ori_img_color, ori_img_depth)
                 self.save_step_state(count)
                 print('success save',count)
                 count+=1
-            elif key == 'a':
+            elif key ==ord( 'a'):
                 self.gripper.activate_gripper()
                 rospy.loginfo("Gripper activated")
-            elif key == 'r':
+            elif key ==ord( 'r'):
                 self.gripper.reset_gripper()
                 rospy.loginfo("Gripper reset")
-            elif key == 'o':
+            elif key ==ord( 'o'):
                 self.gripper.open_gripper()
                 rospy.loginfo("Gripper opened")
-            elif key == 'c':
+            elif key ==ord( 'c'):
                 self.gripper.close_gripper()    
                 rospy.loginfo("Gripper closed") 
             elif key == ord('q'):
@@ -176,6 +176,9 @@ class CollectTrajectory:
         kinect_dk.release()
 
 def main():
+    parser = argparse.ArgumentParser(description="Select mode for collecting keypose trajectory")
+    parser.add_argument('--base_data_path', type=str, default=BASE_DATA_PATH, help='Base data path for saving trajectories')
+    args = parser.parse_args()
     collect_data = CollectTrajectory(base_data_path = args.base_data_path)
     collect_data.get_keyboard_image_state()
 

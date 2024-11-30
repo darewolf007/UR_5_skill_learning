@@ -53,13 +53,11 @@ class KinectDK(object):
 
     def wait_init(self, timeout=10.):
         t = 0.
-        print("5")
         while self.rgb_info is None or self.depth_info is None:
             time.sleep(0.1)
             t += 0.1
             if t >= timeout:
                 raise Queue.Empty
-        print("7")
 
     def rgbinfo_callback(self, camera_info):
         self.rgb_info = camera_info

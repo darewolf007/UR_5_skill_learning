@@ -78,6 +78,7 @@ class RobotiqGripper:
 
 class CollectTrajectory:
     def __init__(self, base_data_path = BASE_DATA_PATH):
+        rospy.init_node('data_collection')
         self.base_data_path = base_data_path
         self.init_data_dir(base_data_path)
         self.traj_length = 0
@@ -86,7 +87,7 @@ class CollectTrajectory:
         self.traj_rgb_image = []
         self.traj_depth_image = []
         self.ur_endeffector_position = None
-        self.gripper = RobotiqGripper(init_node = True)
+        self.gripper = RobotiqGripper(init_node = False)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
     
     def collect_UR_endeffector_position(self, tf_message):
@@ -111,6 +112,7 @@ class CollectTrajectory:
 
     def record_traj(self, save_image = False):
         traj_save_flag = False
+        traj_length = 0
         traj = []
         while not rospy.is_shutdown():
             key = input()
@@ -137,21 +139,24 @@ class CollectTrajectory:
                 break
             elif key == 's':
                 rospy.loginfo("not for recording trajectory") 
-            else:
-                continue
+
             if traj_save_flag:
                 end_pose = self.ur_endeffector_position
                 gripper_state = self.gripper.get_gripper_state()
                 if end_pose is not None:
                     robot_state = np.concatenate((end_pose, np.array([gripper_state])))
                     robot_state_str = robot_state_to_string(robot_state)
+                    print(str(traj_length) + " : " + robot_state_str)
                     traj_length += 1
                     traj.append(robot_state)
+                continue
         numpy_traj = np.array(traj, dtype = np.float32)
         write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
 
     def select_by_keypoard(self, save_image = False):
         traj = []
+        traj_str = []
+        traj_length = 0
         while not rospy.is_shutdown():
             key = input()
             if key == 'b':
@@ -182,12 +187,13 @@ class CollectTrajectory:
                     robot_state_str = robot_state_to_string(robot_state)
                     traj_length += 1
                     traj.append(robot_state)
+                    traj_str.append(robot_state_str)
                     print(str(traj_length) + " : " + robot_state_str)
             else:
                 continue
         numpy_traj = np.array(traj, dtype = np.float32)
         write_npy_file(numpy_traj, self.traj_directory_name + "/traj.npy")
-        traj_str = "[" + "\n".join(traj) + "]"
+        traj_str = "[" + "\n".join(traj_str) + "]"
         with open(self.traj_directory_name + "/traj.txt", "w") as f:
             f.write(traj_str)
       
