@@ -438,7 +438,7 @@ class TrajectoryClient:
 
 class URMoveServer:
     def __init__(self):
-        rospy.init_node("UR_move_server")
+        rospy.init_node("move_ur_follow_stepAction")
         self.init_robot()
         self.move_server = rospy.Service('/set_robot_action', Action, self.handle_robot_action)
         

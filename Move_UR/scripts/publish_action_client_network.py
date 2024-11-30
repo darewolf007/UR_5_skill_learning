@@ -81,7 +81,6 @@ class MoveClient:
         rospy.wait_for_service('set_robot_action')
         self.set_action_client = rospy.ServiceProxy('/set_robot_action', Action)
         self.robot_move_num = 0
-        print("here")
         self.init_camera()
         
     def init_camera(self):

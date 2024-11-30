@@ -2,5 +2,5 @@
     <arg name="init_robot" default="false"/>
     <include file="$(find Move_UR)/launch/init_ur_robot.launch" if="$(arg init_robot)">
     </include>
-    <node pkg="Move_UR" type="ur_move_server.py" name="ur_move_server" output="screen"/>
+    <node pkg="Move_UR" type="move_ur_follow_stepAction.py" name="move_ur_follow_stepAction" output="screen"/>
 </launch>
