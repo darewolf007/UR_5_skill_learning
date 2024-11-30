@@ -52,12 +52,12 @@ source devel/setup.bash
 roslaunch easy_handeye ur5_kinect_calibration.launch
 
 ## tool box
-### collect step rgbd image and robot state info(env: py27  --base_data_path your_path)
+### collect step rgbd image and robot state info(env: py27  other args: --base_data_path your_path)
 source devel_isolated/setup.bash
 
 python src/Move_UR/scripts/useful_tool/collect_image_state.py
 
-### collect robot keypoint or entire trajectory(env: regnet  --base_data_path your_path)
+### collect robot keypoint or entire trajectory(env: regnet  other args: --base_data_path your_path)
 source devel_isolated/setup.bash
 
 #### collect robot entire trajectory(/tf hz is 560~570)
@@ -65,3 +65,7 @@ python src/Move_UR/scripts/useful_tool/collect_robot_trajectory.py --mode record
 
 #### collect robot keypoint trajectory
 python src/Move_UR/scripts/useful_tool/collect_robot_trajectory.py --mode select
+
+## TODO
+refactor python file except move_ur_follow_trajectory
+add internet communication on  own computer
