@@ -1,4 +1,8 @@
 <launch>
-    <arg name="run_gripper_control" default="true"/>
-    <node pkg="robotiq_2f_gripper_control" type="Robotiq2FGripperSimpleController.py" name="robotiq_gripper" if="$(arg run_gripper_control)" output="screen"/>
+    <arg name="local_gripper_communicate" default="false"/>
+    <arg name="robot_ip" doc="The IP address of the UR5 robot" default="192.168.1.138"/>
+    <node pkg="robotiq_2f_gripper_control" type="Robotiq2FGripperSimpleController.py" name="robotiq_gripper" if="$(arg local_gripper_communicate)" output="screen"/>
+    <node pkg="Move_UR" type="control_robotiq_remote.py" name="robotiq_gripper" unless="$(arg local_gripper_communicate)" output="screen">
+        <param name="robot_ip" value="$(arg robot_ip)"/>
+    </node>
 </launch>

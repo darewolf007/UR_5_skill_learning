@@ -1,4 +1,3 @@
-#!/usr/bin/env python2
 import socket
 import threading
 import time
@@ -283,8 +282,7 @@ class RobotiqGripper():
         if char == 'o':
             self.open_gripper()
 
-    
-    def askForCommand(self, command):
+    def askForCommand(self):
         strAskForCommand  = '-----\nAvailable commands\n\n'
         strAskForCommand += 'a: Activate\n'
         strAskForCommand += 'c: Close\n'
@@ -298,5 +296,5 @@ if __name__ == '__main__':
     import rospy
     while not rospy.is_shutdown():
         gripper = RobotiqGripper('192.168.1.138')
-        gripper.gen_gripper_command(gripper.askForCommand(gripper.gripper_command))
+        gripper.gen_gripper_command(gripper.askForCommand())
         rospy.sleep(0.1)

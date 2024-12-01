@@ -71,10 +71,10 @@ roslaunch Move_UR data_collection.launch
 rosservice call /collect_bool_service True
 ```
 
-### Robotiq control on terminal(sudo chmod 777 /dev/ttyUSB0)
+### Robotiq control on terminal(local: sudo chmod 777 /dev/ttyUSB0 local_gripper_communicate:=True)
 
 ```
-roslaunch Move_UR control_robotiq.launch
+roslaunch Move_UR control_robotiq.launch local_gripper_communicate:=False
 ```
 
 ### Camera
