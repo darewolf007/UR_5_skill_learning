@@ -5,6 +5,7 @@
 All packages(no eyehand package, some bug happened when compiled easy_handeye by catkin_make_isolated).
 
 **if you want to use joint control, please check JOINT_NAMES!!!**
+
 For example, when using a command(rostopic echo /joint_states), the output joint sequence order of the result is inconsistent with the official code.
 (should be: elbow_joint, shoulder_lift_joint, shoulder_pan_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint)
 
@@ -54,12 +55,6 @@ rosservice call /collect_bool_service True
 roslaunch Move_UR control_robotiq.launch
 ```
 
-### Get keypoints from keyboard(env: regnet)
-
-```
-python src/Move_UR/scripts/collect_keypose.py
-```
-
 ### Camera
 
 ```
@@ -107,6 +102,12 @@ python src/Move_UR/scripts/useful_tool/collect_robot_trajectory.py --mode record
 
 ```
 python src/Move_UR/scripts/useful_tool/collect_robot_trajectory.py --mode select
+```
+
+### Get keypoints from keyboard(env: regnet)
+
+```
+python src/Move_UR/scripts/useful_tool/collect_keypose.py
 ```
 
 ## TODO
