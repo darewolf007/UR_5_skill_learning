@@ -11,6 +11,7 @@ from std_srvs.srv import SetBool, SetBoolRequest
 # Compatibility for python2 and python3
 if sys.version_info[0] < 3:
     input = raw_input
+
 class RobotiqGripper:
     def __init__(self, init_node = True, commend_control = False):
         if init_node:
@@ -25,7 +26,6 @@ class RobotiqGripper:
                 self.gripper_command = self.gen_gripper_command(self.askForCommand(self.gripper_command), self.gripper_command)
                 self.gripper_pub.publish(self.gripper_command) 
                 rospy.sleep(0.1)
-        
         
     def init_gripper(self):
         self.reset_gripper()
@@ -63,6 +63,15 @@ class RobotiqGripper:
         gripper_msg.data = True
         self.gripper_state_pub.publish(gripper_msg)
         rospy.sleep(0.1)
+    
+    def _collect_gripper_state(self, command):
+        if command.gPR == 0:
+            self.gripper_state = False
+        else:
+            self.gripper_state = True
+    
+    def get_gripper_state(self):
+        return self.gripper_state
     
     def gen_gripper_command(self, char, command):
         """Update the command according to the character entered by the user."""    

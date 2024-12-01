@@ -9,12 +9,29 @@ All packages(no eyehand package, some bug happened when compiled easy_handeye by
 For example, when using a command(rostopic echo /joint_states), the output joint sequence order of the result is inconsistent with the official code.
 (should be: elbow_joint, shoulder_lift_joint, shoulder_pan_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint)
 
+**if you want to control robotiq gripper though UR control cabinet**
+
+Replace 
+```
+from utils.robotiq_gripper import RobotiqGripper 
+```
+to 
+```
+from utils.robotiq_gripper_remote import RobotiqGripper
+```
 ## launch file(all new terminal need to source devel_isolated/setup.bash)
 
 ### UR5e control(launch: camera, robotiq, UR, moveit)
+#### control robotiq gripper though computer
 
 ```
-roslaunch Move_UR init_ur_robot.launch
+roslaunch Move_UR init_ur_robot.launch local_gripper_communicate:=True
+```
+
+#### control robotiq gripper though ur control cabinet
+
+```
+roslaunch Move_UR init_ur_robot.launch local_gripper_communicate:=False
 ```
 
 ### Move robot follow a trajectory and collect data(data_collection env: py27)
@@ -33,7 +50,7 @@ roslaunch Move_UR data_collection.launch
 ### Only move robot follow a trajectory under end control
 
 ```
-roslaunch Move_UR move_follow_trajectory.launch is_collect:=False
+roslaunch Move_UR move_follow_trajectory.launch is_collect:=False local_gripper_communicate:=False
 ```
 
 ### Only move robot follow a trajectory under joint control
@@ -115,3 +132,4 @@ python src/Move_UR/scripts/useful_tool/collect_keypose.py
 * [ ]  refactor python file except move_ur_follow_trajectory
 * [ ]  add internet communication on  remote workstationown
 * [ ]  test internet communication on  robot
+* [ ]  test robotiq remote control and change the code

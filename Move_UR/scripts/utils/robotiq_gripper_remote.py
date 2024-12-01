@@ -1,44 +1,10 @@
-import socket
-HOST = "192.168.1.138" 
-PORT = 63352
-robotiq = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-robotiq.connect((HOST,PORT))
-robotiq.sendall(b'SET ACT 1\n') 
-# robotiq.sendall(b'SET GTO 0\n')
-# robotiq.sendall(b'SET MOD 1\n')
-# robotiq.sendall(b'SET POS 0\n')
-# robotiq.sendall(b'SET POS 255\n')
-# robotiq.sendall(b'SET GTO 1\n')
-def gripperOFF():
-    robotiq.sendall(b'SET ACT 1\n') 
-    robotiq.sendall(b'SET GTO 0\n')
-    robotiq.sendall(b'SET MOD 1\n')
-    robotiq.sendall(b'SET POS 0\n')
-    robotiq.sendall(b'SET GTO 1\n')
-def gripperOn():
-    robotiq.sendall(b'SET ACT 1\n')
-    robotiq.sendall(b'SET GTO 0\n')
-    robotiq.sendall(b'SET MOD 1\n')
-    robotiq.sendall(b'SET POS 255\n')
-    robotiq.sendall(b'SET GTO 1\n')
-def getPosition():
-    robotiq.sendall(b'GET POS\n')
-    data = robotiq.recv(2**10) 
-    print("",data)
-print("sucess")
-# getPosition()
+#!/usr/bin/env python2
 import socket
 import threading
 import time
 from enum import Enum
 
-# Added for ROS
-from robotiq_msgs.msg import CModelStatus, CModelCommand
-import rospy
-import std_msgs.msg
-import os, rospkg
-
-class RobotiqCModelURCap:
+class RobotiqRemoteControl:
     """
     Communicates with the gripper directly via socket with string commands, leveraging string names for variables.
     Uses port 63352 which is opened by the Robotiq Gripper URCap and receives ASCII commands.
@@ -73,18 +39,16 @@ class RobotiqCModelURCap:
         STOPPED_INNER_OBJECT = 2
         AT_DEST = 3
 
-    def __init__(self, address):
+    def __init__(self):
         """Constructor."""
         self.socket = None
         self.command_lock = threading.Lock()
-        self._min_position = 0
-        self._max_position = 255
+        self._min_position = 5
+        self._max_position = 220
         self._min_speed = 0
         self._max_speed = 255
         self._min_force = 0
         self._max_force = 255
-
-        self.connect(address)
 
     def connect(self, hostname, port = 63352, socket_timeout = 2.0):
         """Connects to a gripper at the given address.
@@ -92,7 +56,6 @@ class RobotiqCModelURCap:
         :param port: Port.
         :param socket_timeout: Timeout for blocking socket operations.
         """
-        # print("Connecting to: " + str(hostname) + ", port: " + str(port))
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((hostname, port))
         self.socket.settimeout(socket_timeout)
@@ -105,17 +68,17 @@ class RobotiqCModelURCap:
         self.move(command.rPR, command.rSP, command.rFR)
 
     def getStatus(self):
-        message = CModelStatus()
+        # message = CModelStatus()
         #Assign the values to their respective variables
-        message.gACT = self._get_var(self.ACT)
-        message.gGTO = self._get_var(self.GTO)
-        message.gSTA = self._get_var(self.STA)
-        message.gOBJ = self._get_var(self.OBJ)
-        message.gFLT = self._get_var(self.FLT)
-        message.gPR  = self._get_var(self.PRE)
-        message.gPO  = self._get_var(self.POS)
+        print(self._get_var(self.ACT))
+        print(self._get_var(self.GTO))
+        print(self._get_var(self.STA))
+        print( self._get_var(self.OBJ))
+        print( self._get_var(self.FLT))
+        print(self._get_var(self.PRE))
+        print(self._get_var(self.POS))
         # message.gCU  = self._get_var()  # current is not read by this package
-        return message
+        # return message
 
     def _set_vars(self, var_dict):
         """Sends the appropriate command via socket to set the value of n variables, and waits for its 'ack' response.
@@ -168,27 +131,23 @@ class RobotiqCModelURCap:
     def _is_ack(data):
         return data == b'ack'
 
-    def activate(self, auto_calibrate):
+    def activate(self, auto_calibrate=False):
         """Resets the activation flag in the gripper, and sets it back to one, clearing previous fault flags.
         :param auto_calibrate: Whether to calibrate the minimum and maximum positions based on actual motion.
         """
         # clear and then reset ACT
         self._set_var(self.STA, 0)
         self._set_var(self.STA, 1)
-
-        print("Waiting for activation")
-        # wait for activation to go through
         while not self.is_active():
             time.sleep(0.001)
         print("Activated.")
-        # auto-calibrate position range if desired
         if auto_calibrate:
             self.auto_calibrate()
 
     def is_active(self):
         """Returns whether the gripper is active."""
         status = self._get_var(self.STA)
-        return Gripper2f85.GripperStatus(status) == Gripper2f85.GripperStatus.ACTIVE
+        return self.GripperStatus(status) == self.GripperStatus.ACTIVE
 
     def get_min_position(self):
         """Returns the minimum position the gripper can reach (open position)."""
@@ -224,19 +183,19 @@ class RobotiqCModelURCap:
         """
         # first try to open in case we are holding an object
         (position, status) = self.move_and_wait_for_pos(self.get_open_position(), 64, 1)
-        if Gripper2f85.ObjectStatus(status) != Gripper2f85.ObjectStatus.AT_DEST:
+        if self.ObjectStatus(status) != self.ObjectStatus.AT_DEST:
             raise RuntimeError("Calibration failed opening to start:  " + str(status))
 
         # try to close as far as possible, and record the number
         (position, status) = self.move_and_wait_for_pos(self.get_closed_position(), 64, 1)
-        if Gripper2f85.ObjectStatus(status) != Gripper2f85.ObjectStatus.AT_DEST:
+        if self.ObjectStatus(status) != self.ObjectStatus.AT_DEST:
             raise RuntimeError("Calibration failed because of an object: " +  str(status))
         assert position <= self._max_position
         self._max_position = position
 
         # try to open as far as possible, and record the number
         (position, status) = self.move_and_wait_for_pos(self.get_open_position(), 64, 1)
-        if Gripper2f85.ObjectStatus(status) != Gripper2f85.ObjectStatus.AT_DEST:
+        if self.ObjectStatus(status) != self.ObjectStatus.AT_DEST:
             raise RuntimeError("Calibration failed because of an object: " +  str(status))
         assert position >= self._min_position
         self._min_position = position
@@ -284,50 +243,40 @@ class RobotiqCModelURCap:
 
         # wait until not moving
         cur_obj = self._get_var(self.OBJ)
-        while Gripper2f85.ObjectStatus(cur_obj) == Gripper2f85.ObjectStatus.MOVING:
+        while self.ObjectStatus(cur_obj) == self.ObjectStatus.MOVING:
             cur_obj = self._get_var(self.OBJ)
 
         # report the actual position and the object status
         final_pos = self._get_var(self.POS)
         final_obj = cur_obj
-        return final_pos, Gripper2f85.ObjectStatus(final_obj)
+        return final_pos, self.ObjectStatus(final_obj)
 
+class RobotiqGripper():
+    def __init__(self, hostname):
+        self.robotiq_gripper = RobotiqRemoteControl()
+        self.robotiq_gripper.connect(hostname = hostname )
+        self.robotiq_gripper_state = 0
+        self.activate_gripper()
 
-### Example stand-alone test code
-# if __name__ == '__main__':
-#     gripper = Gripper2f85()
-#     gripper.connect('192.168.1.41', 63352)
-#     # gripper.activate()
-#     gripper.move_and_wait_for_pos(100, 255, 255)
-#     gripper.move_and_wait_for_pos(150, 255, 255)
-#     gripper.move_and_wait_for_pos(100, 255, 255)
+    def activate_gripper(self):
+        self.robotiq_gripper.activate()
+        self.robotiq_gripper_state = 0
+        
+    def open_gripper(self, speed=255, force=255):
+        self.robotiq_gripper.move_and_wait_for_pos(5, speed, force)
+        self.robotiq_gripper_state = 0
 
+    def close_gripper(self, speed=255, force=255):
+        self.robotiq_gripper.move_and_wait_for_pos(230, speed, force)
+        self.robotiq_gripper_state = 1
 
-import os
-import sys
-import socket
-import rospy
-from robotiq_control.cmodel_urcap import RobotiqCModelURCap
-from robotiq_msgs.msg import CModelCommand, CModelStatus
+    def get_gripper_state(self):
+        return self.robotiq_gripper_state
 
-def mainLoop(ur_address):
-  # Gripper is a C-Model that is connected to a UR controller with the Robotiq URCap installed. 
-  # Commands are published to port 63352 as ASCII strings.
-  gripper = RobotiqCModelURCap(ur_address)
-  # The Gripper status
-  pub = rospy.Publisher('status', CModelStatus, queue_size=3)
-  # The Gripper command
-  rospy.Subscriber('command', CModelCommand, gripper.sendCommand)
-  
-  while not rospy.is_shutdown():
-    # Get and publish the Gripper status
-    status = gripper.getStatus()
-    pub.publish(status)
-    # Wait a little
-    rospy.sleep(0.1)
-
+## Example stand-alone test code
 if __name__ == '__main__':
-  rospy.init_node('cmodel_urcap_driver')
-  try:
-    mainLoop(sys.argv[1])
-  except rospy.ROSInterruptException: pass
+    gripper = RobotiqGripper('192.168.1.138')
+    gripper.close_gripper()
+    print(gripper.get_gripper_state())
+    gripper.open_gripper()
+    print(gripper.get_gripper_state())
