@@ -272,11 +272,31 @@ class RobotiqGripper():
 
     def get_gripper_state(self):
         return self.robotiq_gripper_state
+    
+    def gen_gripper_command(self, char):      
+        if char == 'a':
+            self.activate_gripper()
 
-## Example stand-alone test code
+        if char == 'c':
+            self.close_gripper()
+
+        if char == 'o':
+            self.open_gripper()
+
+    
+    def askForCommand(self, command):
+        strAskForCommand  = '-----\nAvailable commands\n\n'
+        strAskForCommand += 'a: Activate\n'
+        strAskForCommand += 'c: Close\n'
+        strAskForCommand += 'o: Open\n'        
+        strAskForCommand += '-->'
+        # print(raw_input(strAskForCommand))
+
+        return raw_input(strAskForCommand)
+
 if __name__ == '__main__':
-    gripper = RobotiqGripper('192.168.1.138')
-    gripper.close_gripper()
-    print(gripper.get_gripper_state())
-    gripper.open_gripper()
-    print(gripper.get_gripper_state())
+    import rospy
+    while not rospy.is_shutdown():
+        gripper = RobotiqGripper('192.168.1.138')
+        gripper.gen_gripper_command(gripper.askForCommand(gripper.gripper_command))
+        rospy.sleep(0.1)
