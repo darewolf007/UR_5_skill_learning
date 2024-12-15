@@ -50,16 +50,14 @@ class ShwUr5eMoveClient:
         if file is not None:
             end_pos = np.load(file)
             if is_collect:
-                self.client.move_once_by_end(end_pos[0][:7])
+                self.client.move_once_by_end(end_pos[0][:7], need_time = 2.5)
                 if end_pos[0][7]:
                     self.gripper.close_gripper()
                 else:
                     self.gripper.open_gripper()
                 self.call_auto_record_service(True)
-                rospy.sleep(0.1)
             for i in range(end_pos.shape[0]):
                 self.client.move_once_by_end(end_pos[i][:7], need_time = 1)
-                rospy.sleep(0.05)
                 if end_pos[i][7]:
                     self.gripper.close_gripper()
                 else:
@@ -108,7 +106,7 @@ if __name__ == "__main__":
     robot_ip = rospy.get_param('~robot_ip')
     if local_gripper_control:
         from utils.robotiq_gripper import RobotiqGripper
-        gripper = RobotiqGripper()
+        gripper = RobotiqGripper(init_node = False)
     else:
         from utils.robotiq_gripper_remote import RobotiqGripper
         gripper = RobotiqGripper(robot_ip)
