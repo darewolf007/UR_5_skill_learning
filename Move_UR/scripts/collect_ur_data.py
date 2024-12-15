@@ -86,8 +86,8 @@ class Data_Collection:
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
         self.ur_gripper_sub = rospy.Subscriber('/Robotiq2FGripperRobotInput', Robotiq2FGripper_robot_input, self.collect_gripper_state)
         self.record_num = 0
-        self.delta_traslation_threshold = 0.02
-        self.delta_rotation_threshold = 2.5
+        self.delta_traslation_threshold = 0.008
+        self.delta_rotation_threshold = 0.5
         self.prev_ur_endeffector_position = None
         base_data_path = "/home/yhx/shw/src/Dataset_Collection/demo/"
         self.traj_directory_name = base_data_path + str(self.count_dirs_in_directory(base_data_path) +1)
@@ -188,16 +188,19 @@ class Data_Collection:
         
     def remove_static_position(self, prev_position, current_position):
         prev_translation = prev_position[:3]
-        prev_quaternion = prev_position[3:]
+        prev_quaternion = prev_position[3:-1]
+        prev_gripper = prev_position[-1]
         current_translation = current_position[:3]
-        current_quaternion = current_position[3:]
+        current_quaternion = current_position[3:-1]
+        current_gripper = current_position[-1]
         translation_diff = np.linalg.norm(current_translation - prev_translation)   
         dot_rotation = np.dot(prev_quaternion, current_quaternion)
         dot_rotation = np.clip(dot_rotation, -1.0, 1.0)
         rotation_diff = (2 * np.arccos(np.abs(dot_rotation)) )* 180 / np.pi
-        if translation_diff > self.delta_traslation_threshold or rotation_diff > self.delta_rotation_threshold:
+        if translation_diff > self.delta_traslation_threshold or rotation_diff > self.delta_rotation_threshold or abs(current_gripper - prev_gripper) > 0:
             return False
         else:
+            # print(translation_diff)
             return True
 
     def record_marker(self):
@@ -223,31 +226,35 @@ class Data_Collection:
                     cv2.imwrite(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_depth)
                     cv2.imwrite(self.traj_directory_name +  '/marker_result_image/' + 'aruco_'  + str(self.record_num) + '.jpg', self.aruco_image)
     
+    def save_state_rgbd(self, traj_data):
+        velo =np.array(self.ur_joint_velocity)
+        self.record_num += 1
+        traj_file_path = self.traj_directory_name + '/traj/' + 'traj_' + str(self.record_num) + '.npy'
+        velo_file_path=self.traj_directory_name + '/traj/' + 'velo_' + str(self.record_num) + '.npy'
+        print("traj_file_path", traj_file_path)
+        np.save(traj_file_path, traj_data)
+        np.save(velo_file_path, velo)
+        img_color = self.kinect_dk.queue_color.get(timeout=10.0)
+        img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
+        # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
+        # img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
+        misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
+        np.save(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.npy', img_depth.astype(np.float16))
+        cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
+    
     def record(self):
         with self.safe_lock:
             if self.ur_endeffector_position is not None:
+                traj_data = np.concatenate((np.array(self.ur_endeffector_position), np.array([self.gripper_state])))
                 if self.prev_ur_endeffector_position is not None:
-                    if not self.remove_static_position(self.prev_ur_endeffector_position, self.ur_endeffector_position):
-                        traj_data = np.concatenate((np.array(self.ur_endeffector_position), np.array([self.gripper_state])))
-                        velo =np.array(self.ur_joint_velocity)
-                        self.record_num += 1
-                        traj_file_path = self.traj_directory_name + '/traj/' + 'traj_' + str(self.record_num) + '.npy'
-                        velo_file_path=self.traj_directory_name + '/traj/' + 'velo_' + str(self.record_num) + '.npy'
-                        print("traj_file_path", traj_file_path)
-                        np.save(traj_file_path, traj_data)
-                        np.save(velo_file_path, velo)
-                        img_color = self.kinect_dk.queue_color.get(timeout=10.0)
-                        img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
-                        # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
-                        # img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
-                        misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
-                        np.save(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.npy', img_depth.astype(np.float16))
-                        cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
-                        self.prev_ur_endeffector_position = self.ur_endeffector_position
+                    if not self.remove_static_position(self.prev_ur_endeffector_position, traj_data):
+                        self.save_state_rgbd(traj_data)
+                        self.prev_ur_endeffector_position = traj_data
                     else:
                         print("remove static position")
                 else:
-                    self.prev_ur_endeffector_position = self.ur_endeffector_position
+                    self.save_state_rgbd(traj_data)
+                    self.prev_ur_endeffector_position = traj_data
         
 class Auto_Run_Collection:
     def __init__(self):
