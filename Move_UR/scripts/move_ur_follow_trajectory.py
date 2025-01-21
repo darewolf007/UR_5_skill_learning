@@ -57,7 +57,7 @@ class ShwUr5eMoveClient:
                     self.gripper.open_gripper()
                 self.call_auto_record_service(True)
             for i in range(end_pos.shape[0]):
-                self.client.move_once_by_end(end_pos[i][:7], need_time = 1)
+                self.client.move_once_by_end(end_pos[i][:7], need_time = 2.5)
                 if end_pos[i][7]:
                     self.gripper.close_gripper()
                 else:

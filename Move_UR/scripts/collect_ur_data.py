@@ -203,6 +203,12 @@ class Data_Collection:
             # print(translation_diff)
             return True
 
+    def check_joint_state(self, joint_state):
+        if joint_state[0] == 0 and  joint_state[1] == 0  and  joint_state[2] == 0 and  joint_state[3] == 0 and  joint_state[4] == 0:
+            return False
+        else:
+            return True
+
     def record_marker(self):
         with self.safe_lock:
             if len(list(self.marker_dict.keys()))==4 and (all(item in list(self.marker_dict.keys()) for item in [1, 5, 13, 17])) and (all(item is not None for item in [self.ur_joint_angle, self.ur_endeffector_position, self.aruco_image])):
@@ -228,19 +234,23 @@ class Data_Collection:
     
     def save_state_rgbd(self, traj_data):
         velo =np.array(self.ur_joint_velocity)
-        self.record_num += 1
-        traj_file_path = self.traj_directory_name + '/traj/' + 'traj_' + str(self.record_num) + '.npy'
-        velo_file_path=self.traj_directory_name + '/traj/' + 'velo_' + str(self.record_num) + '.npy'
-        print("traj_file_path", traj_file_path)
-        np.save(traj_file_path, traj_data)
-        np.save(velo_file_path, velo)
-        img_color = self.kinect_dk.queue_color.get(timeout=10.0)
-        img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
-        # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
-        # img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
-        misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
-        np.save(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.npy', img_depth.astype(np.float16))
-        cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
+        joint = np.array(self.ur_joint_angle)
+        if self.check_joint_state(joint):
+            self.record_num += 1
+            joint_file_path = self.traj_directory_name + '/traj/' + 'joint_' + str(self.record_num) + '.npy'
+            traj_file_path = self.traj_directory_name + '/traj/' + 'traj_' + str(self.record_num) + '.npy'
+            velo_file_path=self.traj_directory_name + '/traj/' + 'velo_' + str(self.record_num) + '.npy'
+            print("traj_file_path", traj_file_path)
+            np.save(joint_file_path, joint)
+            np.save(traj_file_path, traj_data)
+            np.save(velo_file_path, velo)
+            img_color = self.kinect_dk.queue_color.get(timeout=10.0)
+            img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
+            # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
+            # img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
+            misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
+            np.save(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.npy', img_depth.astype(np.float16))
+            cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
     
     def record(self):
         with self.safe_lock:

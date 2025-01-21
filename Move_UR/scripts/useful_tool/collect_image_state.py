@@ -72,7 +72,7 @@ class CollectTrajectory:
         cv2.imwrite(save_path, img_color)
         save_path2 = dataset_path+ '/depth/depth_'+str(count)+'.png'
         save_path3 = dataset_path+ '/depth/depth_'+str(count)+'.npy'
-        misc.imsave(save_path2, img_depth)
+        # misc.imsave(save_path2, img_depth)
         np.save(save_path3, img_depth.astype(np.float16))
     
     def save_step_state(self,count):

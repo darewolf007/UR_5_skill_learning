@@ -107,6 +107,12 @@ class CollectTrajectory:
                 self.save_data_event.set()
                 break
     
+    def check_joint_state(self, joint_state):
+        if joint_state[0] == 0 and  joint_state[1] == 0  and  joint_state[2] == 0 and  joint_state[3] == 0 and  joint_state[4] == 0:
+            return False
+        else:
+            return True
+    
     def record_traj_output(self):
         traj_length = 0
         traj = []
@@ -116,16 +122,17 @@ class CollectTrajectory:
                 if self.traj_save_flag:
                     end_pose = self.ur_endeffector_position
                     joint_state = self.ur_joint_angle
-                    gripper_state = self.gripper.get_gripper_state()
-                    if end_pose is not None:
-                        robot_state = np.concatenate((end_pose, np.array([gripper_state])))
-                        robot_joint = np.concatenate((joint_state, np.array([gripper_state])))
-                        robot_state_str = robot_state_to_string(robot_state)
-                        traj_length += 1
-                        if traj_length % self.record_step == 0:
-                            print(str(traj_length) + " : " + robot_state_str)
-                            traj.append(robot_state)
-                            joint.append(robot_joint)
+                    if self.check_joint_state(joint_state):
+                        gripper_state = self.gripper.get_gripper_state()
+                        if end_pose is not None:
+                            robot_state = np.concatenate((end_pose, np.array([gripper_state])))
+                            robot_joint = np.concatenate((joint_state, np.array([gripper_state])))
+                            robot_state_str = robot_state_to_string(robot_state)
+                            traj_length += 1
+                            if traj_length % self.record_step == 0:
+                                print(str(traj_length) + " : " + robot_state_str)
+                                traj.append(robot_state)
+                                joint.append(robot_joint)
             if self.save_data_event.is_set():
                 numpy_traj = np.array(traj, dtype=np.float32)
                 numpy_joint = np.array(joint, dtype=np.float32)
