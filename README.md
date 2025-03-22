@@ -25,7 +25,7 @@ from utils.robotiq_gripper_remote import RobotiqGripper
 
 ## launch file(all new terminal need to source devel_isolated/setup.bash)
 
-**if you want to use realsense d435i, you need to first run**
+**if you want to use realsense d435i, you need to first run (435i can not write in one launch file, some bug happened on realsense realtime package. The initial judgment is that it conflicts with the initialization of the Azure Kinect camera, and must be started before this camera is initialized.)**
 
 ```
 roslaunch realsense2_camera rs_camera.launch
