@@ -9,7 +9,7 @@ All packages(no eyehand package, some bug happened when compiled easy_handeye by
 For example, when using a command(rostopic echo /joint_states), the output joint sequence order of the result is inconsistent with the official code.
 (should be: elbow_joint, shoulder_lift_joint, shoulder_pan_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint)
 
-**if you want to control robotiq gripper though UR control cabinet**
+**if you want to control robotiq gripper though UR control cabinet and run**
 
 Replace
 
@@ -25,10 +25,16 @@ from utils.robotiq_gripper_remote import RobotiqGripper
 
 ## launch file(all new terminal need to source devel_isolated/setup.bash)
 
-**if you want to use realsense d435i, you need to first run **
+**if you want to use realsense d435i, you need to first run**
 
 ```
 roslaunch realsense2_camera rs_camera.launch
+```
+
+**if you reboot the computer, you need to reset IP on UR control cabinet, and run**
+
+```
+sudo chmod 777 /dev/ttyUSB0
 ```
 
 ### UR5e control(launch: camera, robotiq, UR, moveit)
@@ -61,13 +67,13 @@ roslaunch Move_UR data_collection.launch
 ### Only move robot follow a trajectory under end control
 
 ```
-roslaunch Move_UR move_follow_trajectory.launch is_collect:=False local_gripper_communicate:=False
+roslaunch Move_UR move_follow_trajectory.launch is_collect:=False local_gripper_communicate:=True
 ```
 
 ### Only move robot follow a trajectory under joint control
 
 ```
-roslaunch Move_UR move_follow_trajectory.launch is_collect:=False control_mode:=joint local_gripper_communicate:=False
+roslaunch Move_UR move_follow_trajectory.launch is_collect:=False control_mode:=joint local_gripper_communicate:=True
 ```
 
 ### Only data collection without move robot(data_collection env: py27)
@@ -80,7 +86,7 @@ rosservice call /collect_bool_service True
 ### Robotiq control on terminal(local: sudo chmod 777 /dev/ttyUSB0 local_gripper_communicate:=True)
 
 ```
-roslaunch Move_UR control_robotiq.launch local_gripper_communicate:=False
+roslaunch Move_UR control_robotiq.launch local_gripper_communicate:=True
 ```
 
 ### Camera
@@ -140,7 +146,4 @@ python src/Move_UR/scripts/useful_tool/collect_keypose.py
 
 ## TODO
 
-* [ ]  refactor python file except move_ur_follow_trajectory
-* [ ]  add internet communication on  remote workstationown
-* [ ]  test internet communication on  robot
 * [ ]  test robotiq remote control and change the code
