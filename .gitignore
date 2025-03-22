@@ -10,6 +10,7 @@ spirl/
 *.log
 *.pyc
 .idea/
+not_use/
 __pycache__/
 *.make
 *.cmake

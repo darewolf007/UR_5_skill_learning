@@ -230,7 +230,7 @@ class TrajectoryClient:
         self.joint_trajectory_controller = JOINT_TRAJECTORY_CONTROLLERS[0]
         self.cartesian_trajectory_controller = CARTESIAN_TRAJECTORY_CONTROLLERS[0]
 
-    def send_init_joint_trajectory(self):
+    def send_init_joint_trajectory(self, init_joint):
         """Creates a trajectory and sends it using the selected action server"""
 
         # make sure the correct controller is loaded and activated
@@ -252,8 +252,8 @@ class TrajectoryClient:
 
         # The following list are arbitrary positions
         # Change to your own needs if desired
-        position_list = [[1.542957607899801, -1.3407166761210938, 1.2018647193908691, -1.75225891689443, -1.6117513815509241, -0.3191445509540003]]
-        duration_list = [1.0]
+        position_list = [init_joint]
+        duration_list = [5.0]
         for i, position in enumerate(position_list):
             point = JointTrajectoryPoint()
             point.positions = position
@@ -443,9 +443,10 @@ class URMoveServer:
         self.move_server = rospy.Service('/set_robot_action', Action, self.handle_robot_action)
         
         
-    def init_robot(self):
+    def init_robot(self, init_joint = None):
+        # init_joint = [ 1.8654102 , -1.7593476 , -0.99919635, -1.6415144 , -1.5742697 ,  -0.23975307 ]
         self.client = TrajectoryClient(init_node = False)
-        self.client.send_init_joint_trajectory()
+        self.client.send_init_joint_trajectory(init_joint)
         self.gripper = RobotiqGripper(init_node = False)
         self.gripper.open_gripper()
         rospy.loginfo("init robot position")

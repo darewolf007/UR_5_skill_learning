@@ -15,6 +15,10 @@ from tf2_msgs.msg import TFMessage
 from kinect_camera import KinectDK
 from scipy import misc
 from sensor_msgs.msg import JointState
+from sensor_msgs.msg import Image, JointState
+from aruco_msgs.msg import MarkerArray
+from std_msgs.msg import Bool, UInt32MultiArray
+
 BASE_DATA_PATH = "/home/yhx/shw/src/Dataset_Collection/keypose/"
 
 def write_npy_file(data, file_name):
@@ -32,12 +36,30 @@ class CollectTrajectory:
         self.traj_joint_pose = []
         self.traj_rgb_image = []
         self.traj_depth_image = []
+        self.marker_list = []
+        self.marker_dict = {}
         self.ur_endeffector_position = None
         self.ur_joint_angle = None
         self.ur_joint_velocity=None
         self.gripper = RobotiqGripper(init_node = True)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
         self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_info)
+        self.aruco_markers_sub = rospy.Subscriber('/aruco_marker_publisher/markers_list', UInt32MultiArray, self.collect_aruco_markers)
+        self.aruco_result_sub = rospy.Subscriber('/aruco_marker_publisher/markers', MarkerArray, self.collect_aruco_results)
+
+    def collect_aruco_markers(self, marker_list):
+        self.marker_list = marker_list.data
+
+    def collect_aruco_results(self, marker_array):
+        self.marker_dict = {}
+        for marker in marker_array.markers:
+            marker_id = marker.id
+            marker_pose = marker.pose.pose
+            translation = marker_pose.position
+            rotation = marker_pose.orientation
+            translation_data = np.array([translation.x, translation.y, translation.z])
+            rotation_data = np.array([rotation.x, rotation.y, rotation.z, rotation.w])
+            self.marker_dict[marker_id] = np.concatenate((translation_data, rotation_data))
 
     def collect_UR_endeffector_position(self, tf_message):
         for transform in tf_message.transforms:
@@ -93,6 +115,15 @@ class CollectTrajectory:
             with open(self.traj_directory_name + '/state/joint_trajectory_'+str(count)+'.txt', "w") as f:
                 f.write(robot_joint_str)
 
+    def save_step_marker(self,count):
+        if (all(item in list(self.marker_dict.keys()) for item in [1])):
+            traj_data =  self.marker_dict[1]
+            write_npy_file(traj_data, self.traj_directory_name + '/state/marker_trajectory_'+str(count)+'.npy')
+            with open(self.traj_directory_name + '/state/marker_trajectory_'+str(count)+'.txt', "w") as f:
+                f.write(str(traj_data.tolist()))
+            return True
+        return False
+
     def get_keyboard_image_state(self):
         kinect_dk = KinectDK()
         img_color = kinect_dk.queue_color.get(timeout=10.0)
@@ -116,6 +147,14 @@ class CollectTrajectory:
                 self.save_step_state(count)
                 print('success save',count)
                 count+=1
+            elif key ==ord('m'):
+                is_marker =  self.save_step_marker(count)
+                if is_marker:
+                    self.save_step_image(count, ori_img_color, ori_img_depth)
+                    print('success save',count)
+                    count+=1
+                else:
+                    print("marker unseen, remove")
             elif key ==ord( 'a'):
                 self.gripper.activate_gripper()
                 rospy.loginfo("Gripper activated")

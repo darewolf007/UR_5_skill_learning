@@ -25,6 +25,12 @@ from utils.robotiq_gripper_remote import RobotiqGripper
 
 ## launch file(all new terminal need to source devel_isolated/setup.bash)
 
+**if you want to use realsense d435i, you need to first run **
+
+```
+roslaunch realsense2_camera rs_camera.launch
+```
+
 ### UR5e control(launch: camera, robotiq, UR, moveit)
 
 #### control robotiq gripper though computer
@@ -46,7 +52,7 @@ roslaunch Move_UR init_ur_robot.launch local_gripper_communicate:=False
 eg: roslaunch Move_UR move_follow_trajectory.launch is_collect:=True control_mode:=end local_gripper_communicate:=False trajectory_path:="your trajectory path"
 
 ```
-roslaunch Move_UR move_follow_trajectory.launch local_gripper_communicate:=False
+roslaunch Move_UR move_follow_trajectory.launch local_gripper_communicate:=True
 roslaunch Move_UR data_collection.launch
 ```
 

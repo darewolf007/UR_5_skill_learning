@@ -72,6 +72,8 @@ class Data_Collection:
         self.ur_joint_velocity=None
         self.ur_endeffector_position = None
         self.aruco_image = None
+        self.use_realsense = True
+        self.realsense_rgb_image = None
         self.gripper_state = 0
         self.marker_dict_collect = []
         self.ur_joint_angle_collect = []
@@ -85,10 +87,14 @@ class Data_Collection:
         self.ur_joint_sub = rospy.Subscriber('/joint_states', JointState, self.collect_UR_joint_info)
         self.ur_endeffector_sub = rospy.Subscriber('/tf', TFMessage, self.collect_UR_endeffector_position)
         self.ur_gripper_sub = rospy.Subscriber('/Robotiq2FGripperRobotInput', Robotiq2FGripper_robot_input, self.collect_gripper_state)
+        self.step_service = rospy.Service('collect_image_bool_service', SetBool, self.handle_image_bool_service)
+        self.realsense_image_sub = rospy.Subscriber('/camera/color/image_raw', Image, self.collect_realsense_image)
         self.record_num = 0
         self.delta_traslation_threshold = 0.008
         self.delta_rotation_threshold = 0.5
         self.prev_ur_endeffector_position = None
+        self.prev_marker_position = None
+        self.step_image_flag = False
         base_data_path = "/home/yhx/shw/src/Dataset_Collection/demo/"
         self.traj_directory_name = base_data_path + str(self.count_dirs_in_directory(base_data_path) +1)
         print("this is the " + str(self.count_dirs_in_directory(base_data_path) +1) +" trajectory")
@@ -100,6 +106,19 @@ class Data_Collection:
             os.mkdir(self.traj_directory_name + '/marker_result_image')
             os.mkdir(self.traj_directory_name + '/marker')
     
+    def handle_image_bool_service(self,req):
+        if req.data:          
+            self.step_image_flag = True
+            if not self.step_image_flag:
+                return SetBoolResponse(success=True, message="collect step image")
+            else:
+                return SetBoolResponse(success=False, message="not collect step image")
+            
+    def record_step_image(self):
+        if self.step_image_flag:
+            self.record()
+            self.step_image_flag = False
+    
     def count_dirs_in_directory(self, path):
         count = sum(os.path.isdir(os.path.join(path, name)) for name in os.listdir(path))
         return count
@@ -107,12 +126,16 @@ class Data_Collection:
     def collect_aruco_markers(self, marker_list):
         self.marker_list = marker_list.data
     
+    def collect_realsense_image(self, image_msg):
+        image = self.cvbridge.imgmsg_to_cv2(image_msg,  desired_encoding='rgb8')
+        self.realsense_rgb_image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+        
     def collect_aruco_image(self, image_msg):
         image = self.cvbridge.imgmsg_to_cv2(image_msg,  desired_encoding='rgb8')
         self.aruco_image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
 
     def collect_aruco_results(self, marker_array):
-        with self.safe_lock:
+        # with self.safe_lock:
             self.marker_dict = {}
             for marker in marker_array.markers:
                 marker_id = marker.id
@@ -235,7 +258,7 @@ class Data_Collection:
     def save_state_rgbd(self, traj_data):
         velo =np.array(self.ur_joint_velocity)
         joint = np.array(self.ur_joint_angle)
-        if self.check_joint_state(joint):
+        if self.check_joint_state(joint) and (self.use_realsense == (self.realsense_rgb_image is not None)):
             self.record_num += 1
             joint_file_path = self.traj_directory_name + '/traj/' + 'joint_' + str(self.record_num) + '.npy'
             traj_file_path = self.traj_directory_name + '/traj/' + 'traj_' + str(self.record_num) + '.npy'
@@ -251,6 +274,33 @@ class Data_Collection:
             misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
             np.save(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.npy', img_depth.astype(np.float16))
             cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
+            cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'hand_'  + str(self.record_num) + '.jpg', self.realsense_rgb_image)
+            # cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', self.aruco_image)
+    
+    def save_marker(self):
+        # with self.safe_lock: # not know bug, not record data
+            print(self.marker_dict.keys())
+            if (all(item in list(self.marker_dict.keys()) for item in [1])):
+                traj_data =  self.marker_dict[1]
+                if  self.prev_marker_position is None or np.linalg.norm( self.prev_marker_position[:3] - traj_data[:3]) > self.delta_traslation_threshold:
+                    self.record_num += 1
+                    traj_file_path = self.traj_directory_name + '/traj/' + 'traj_' + str(self.record_num) + '.npy'
+                    np.save(traj_file_path, traj_data)
+                    img_color = self.kinect_dk.queue_color.get(timeout=10.0)
+                    img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
+                    # img_color = cv2.remap(img_color, self.map1, self.map2, cv2.INTER_CUBIC)
+                    # img_depth = cv2.remap(img_depth, self.map1, self.map2, cv2.INTER_NEAREST)
+                    misc.imsave(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + 'mat.png', img_depth)
+                    np.save(self.traj_directory_name +  '/scene_depth_image/' + 'scene_'  + str(self.record_num) + '.npy', img_depth.astype(np.float16))
+                    cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_'  + str(self.record_num) + '.jpg', img_color)
+                    cv2.imwrite(self.traj_directory_name +  '/scene_rgb_image/' + 'scene_result_'  + str(self.record_num) + '.jpg', self.aruco_image)
+                    print("sucess save, pose is", traj_data)
+                    self.marker_dict = {}
+                    self.prev_marker_position = traj_data
+                else:
+                    print("remove static position")
+            else:
+                print("marker unseen")
     
     def record(self):
         with self.safe_lock:
@@ -294,6 +344,8 @@ class Auto_Run_Collection:
         rate = rospy.Rate(4)
         while not rospy.is_shutdown():
             if self.is_recording and self.data is not None:
+                # self.data.save_marker()
+                # self.data.record_step_image() # wlp, use step image call from not_use/trajecytory, align hand data
                 self.data.record()
             rate.sleep()
 

@@ -16,9 +16,77 @@ import requests
 import io
 from utils.kinect_camera import KinectDK
 
-SERVER_URL = "http://10.184.17.105:8000/act"
+SERVER_URL = "http://10.184.17.177:8000/vla"
 instr = "pickup object 20cm"
- 
+class process_data:
+    def __init__(self) -> None:
+        self.previous_gripper_action  = None
+     
+    def euler_to_quaternion(self, roll, pitch, yaw):
+        cy = np.cos(yaw * 0.5)
+        sy = np.sin(yaw * 0.5)
+        cp = np.cos(pitch * 0.5)
+        sp = np.sin(pitch * 0.5)
+        cr = np.cos(roll * 0.5)
+        sr = np.sin(roll * 0.5)
+
+        w = cr * cp * cy + sr * sp * sy
+        x = sr * cp * cy - cr * sp * sy
+        y = cr * sp * cy + sr * cp * sy
+        z = cr * cp * sy - sr * sp * cy
+        quat = np.array([w, x, y, z])
+        return quat
+    
+    def postprocess_action(self, action):
+        current_gripper_action = action[-1]
+        if self.previous_gripper_action is None:
+            relative_gripper_action = np.array([0])
+        else:
+            relative_gripper_action = (
+                self.previous_gripper_action - current_gripper_action
+            )  # google robot 1 = close; -1 = open
+        self.previous_gripper_action = current_gripper_action
+
+        if np.abs(relative_gripper_action) > 0.5:
+            gripper_action = 1
+        else:
+            gripper_action = 0
+        world_vector = action[:3]
+        action_rotation_delta = action[3:]
+        # gripper_action = action[-1]
+        quat = self.euler_to_quaternion(action_rotation_delta[0], action_rotation_delta[1], action_rotation_delta[2])
+        # if gripper_action < 0.5:
+        #     gripper_action = 0
+        # else:
+        #     gripper_action = 1
+        action = np.concatenate([world_vector, quat, [gripper_action]])
+        return action
+    
+    def send_online_data(self, img_color, proprio_array,  task_name):
+        np_rgb_image = np.array(img_color)
+        _, image_encoded = cv2.imencode('.jpg', np_rgb_image)
+        image_bytes = io.BytesIO(image_encoded.tobytes())
+        files = {
+            "image_file": ("image.jpg", image_bytes, "image/jpeg"),
+        }
+        data = {
+            "label": task_name,
+        }
+        response = requests.post("http://10.184.17.177:8000/vla",files=files ,data=data)
+        if response.status_code == 200:
+            task_info = response.json()
+            print(f"Task started: {task_info}")
+        else:
+            print("Failed to get a valid response from server. Status code:", response.status_code)
+            return None
+        task_info = response.json()
+        delta_action = self.postprocess_action(task_info["action"][0][0])
+        xyz_action = proprio_array[:3] + delta_action[:3]
+        wxyz = proprio_array[3:-1]
+        gripper = delta_action[-1]
+        action = np.concatenate([xyz_action, wxyz, [gripper]])
+        print("new action", action)
+        return action
 
 def send_data(image_array: np.ndarray, depth_array: np.ndarray, proprio_array,  timestep):
     # 将图像数组转换为字节流
@@ -203,15 +271,19 @@ class MoveClient:
     
     def run(self):
         timestep = 0
+        online_data = process_data()
         while not rospy.is_shutdown():
             img_color = self.kinect_dk.queue_color.get(timeout=10.0)
             img_depth = self.kinect_dk.queue_depth.get(timeout=10.0)
-            proprio_array = np.array([self.gripper_state])
-            proprio_array = np.concatenate([self.ur_endeffector_position, proprio_array])
-            if img_color is not None:
-                action_dict = send_data(img_color, img_depth, proprio_array, timestep)
-                robot_action_data = action_dict["action"]
-                print(robot_action_data)
+            if img_color is not None and self.ur_endeffector_position is not None :
+                proprio_array = np.array([self.gripper_state])
+                proprio_array = np.concatenate([self.ur_endeffector_position, proprio_array])
+                # action_dict = send_data(img_color, img_depth, proprio_array, timestep)
+                action = online_data.send_online_data(img_color, proprio_array, "pick up banana")
+                if action is None:
+                    continue
+                robot_action_data = action
+                print("final",robot_action_data)
                 rospy.sleep(1)
                 robot_state = self.send_robot_action(np.array(robot_action_data))
                 timestep += 1

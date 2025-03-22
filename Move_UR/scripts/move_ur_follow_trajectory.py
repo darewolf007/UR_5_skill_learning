@@ -60,10 +60,14 @@ class ShwUr5eMoveClient:
                 self.client.move_once_by_end(end_pos[i][:7], need_time = 2.5)
                 if end_pos[i][7]:
                     self.gripper.close_gripper()
+                    rospy.sleep(0.5)
                 else:
                     self.gripper.open_gripper()
+                    rospy.sleep(0.5)
             if is_collect:
                 self.call_auto_record_service(False)
+            self.gripper.open_gripper()
+            self.client.move_once_by_end(end_pos[0][:7], need_time = 2.5)
 
 # def step_npy_files_in_order(directory):
 #     rospy.init_node("move_traj_once")
